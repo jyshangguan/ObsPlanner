@@ -8,6 +8,21 @@ observing windows.
 The bundled catalog includes Paranal, La Silla, Palomar, Las Campanas, and
 other major observing sites around the world.
 
+## Download
+
+The current release is **ObsPlanner 0.1.0**.
+
+[Download ObsPlanner 0.1.0 for macOS (Apple Silicon, ZIP)](https://github.com/jyshangguan/ObsPlanner/releases/download/v0.1.0/ObsPlanner-0.1.0-macOS-arm64.zip)
+
+The macOS application is self-contained: Conda, Python, and the source
+repository are not required. Extract the ZIP, move `ObsPlanner.app` to
+`Applications`, and open it. This build requires an Apple Silicon Mac and
+macOS 12 or newer.
+
+The initial release is not notarized. If macOS blocks the first launch,
+Control-click `ObsPlanner.app`, choose **Open**, and confirm that you want to
+run it.
+
 ## Features
 
 - SIMBAD target-name resolution
@@ -97,6 +112,77 @@ Target names must be unique.
 In **Combined panel** mode, each target has its own sidebar color picker. In
 **Separate panels** mode, every target is rendered with the complete
 single-target chart.
+
+## macOS desktop development
+
+ObsPlanner includes a cross-platform desktop launcher that runs Streamlit on a
+private loopback port and displays it in a native pywebview window.
+
+Install the desktop dependencies in the development environment:
+
+```bash
+conda activate observations
+python -m pip install -e ".[test,desktop]"
+```
+
+Run the native development window:
+
+```bash
+obsplanner-desktop
+```
+
+For a server-lifecycle smoke test without opening a window:
+
+```bash
+obsplanner-desktop --server-only
+```
+
+The URL printed by the server-only command is bound to `127.0.0.1` and changes
+on every launch. Closing the native window terminates the embedded Streamlit
+server.
+
+### Build the macOS app
+
+On an Apple Silicon Mac:
+
+```bash
+conda activate observations
+./packaging/macos/build_macos.sh
+```
+
+The application bundle is written to:
+
+```text
+dist/ObsPlanner.app
+```
+
+It can be launched from Finder or with:
+
+```bash
+open dist/ObsPlanner.app
+```
+
+To apply an ad-hoc signature for local testing:
+
+```bash
+OBSPLANNER_ADHOC_SIGN=1 ./packaging/macos/build_macos.sh
+```
+
+The v0.1.0 ZIP release uses the locally signed build and is not Apple-notarized.
+A future warning-free public distribution should use a Developer ID
+Application certificate, Apple notarization, and a stapled ticket. Signing
+credentials must remain in the developer keychain or CI secrets and must not
+be committed.
+
+Desktop logs are written under the platform's normal user log directory. On
+macOS this is:
+
+```text
+~/Library/Logs/ObsPlanner/
+```
+
+The launcher and path logic are shared across platforms. Linux and Windows will
+use platform-specific packaging configurations in later releases.
 
 ## Time and constraints
 
