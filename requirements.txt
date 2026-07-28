@@ -1,0 +1,8 @@
+astropy>=6.0
+astroplan>=0.10
+astroquery>=0.4.7
+matplotlib>=3.8
+numpy>=1.26
+pandas>=2.1
+PyYAML>=6.0
+streamlit>=1.32

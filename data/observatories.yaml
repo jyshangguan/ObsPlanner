@@ -1,0 +1,119 @@
+paranal:
+  name: Paranal Observatory
+  latitude: -24.6272
+  longitude: -70.4042
+  elevation: 2635
+  timezone: America/Santiago
+  description: ESO Very Large Telescope site, Chile
+
+la_silla:
+  name: La Silla Observatory
+  latitude: -29.2567
+  longitude: -70.7346
+  elevation: 2400
+  timezone: America/Santiago
+  description: ESO observatory, Chile
+
+palomar:
+  name: Palomar Observatory
+  latitude: 33.3563
+  longitude: -116.8648
+  elevation: 1712
+  timezone: America/Los_Angeles
+  description: Caltech observatory, California, USA
+
+las_campanas:
+  name: Las Campanas Observatory
+  latitude: -29.0154
+  longitude: -70.6925
+  elevation: 2380
+  timezone: America/Santiago
+  description: Carnegie observatory, Chile
+
+mauna_kea:
+  name: Mauna Kea Observatories
+  latitude: 19.8206
+  longitude: -155.4681
+  elevation: 4205
+  timezone: Pacific/Honolulu
+  description: Maunakea summit observatory site, Hawaiʻi, USA
+
+keck:
+  name: W. M. Keck Observatory
+  latitude: 19.8261
+  longitude: -155.4740
+  elevation: 4145
+  timezone: Pacific/Honolulu
+  description: Keck telescopes on Maunakea, Hawaiʻi, USA
+
+gemini_north:
+  name: Gemini North
+  latitude: 19.8238
+  longitude: -155.4691
+  elevation: 4213
+  timezone: Pacific/Honolulu
+  description: Gemini North telescope, Hawaiʻi, USA
+
+gemini_south:
+  name: Gemini South
+  latitude: -30.2407
+  longitude: -70.7366
+  elevation: 2722
+  timezone: America/Santiago
+  description: Gemini South telescope on Cerro Pachón, Chile
+
+cerro_tololo:
+  name: Cerro Tololo Inter-American Observatory
+  latitude: -30.1690
+  longitude: -70.8065
+  elevation: 2207
+  timezone: America/Santiago
+  description: NOIRLab observatory, Chile
+
+alma:
+  name: ALMA Operations Site
+  latitude: -23.0290
+  longitude: -67.7550
+  elevation: 5050
+  timezone: America/Santiago
+  description: ALMA Array Operations Site, Chajnantor, Chile
+
+kitt_peak:
+  name: Kitt Peak National Observatory
+  latitude: 31.9584
+  longitude: -111.5967
+  elevation: 2096
+  timezone: America/Phoenix
+  description: NOIRLab observatory, Arizona, USA
+
+apache_point:
+  name: Apache Point Observatory
+  latitude: 32.7803
+  longitude: -105.8203
+  elevation: 2788
+  timezone: America/Denver
+  description: Observatory in New Mexico, USA
+
+lick:
+  name: Lick Observatory
+  latitude: 37.3414
+  longitude: -121.6429
+  elevation: 1283
+  timezone: America/Los_Angeles
+  description: University of California observatory, USA
+
+siding_spring:
+  name: Siding Spring Observatory
+  latitude: -31.2733
+  longitude: 149.0644
+  elevation: 1165
+  timezone: Australia/Sydney
+  description: Australian National University observatory, Australia
+
+saao_sutherland:
+  name: South African Astronomical Observatory (Sutherland)
+  latitude: -32.3794
+  longitude: 20.8107
+  elevation: 1798
+  timezone: Africa/Johannesburg
+  description: SAAO observing station, South Africa
