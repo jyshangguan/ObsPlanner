@@ -70,14 +70,6 @@ cerro_tololo:
   timezone: America/Santiago
   description: NOIRLab observatory, Chile
 
-alma:
-  name: ALMA Operations Site
-  latitude: -23.0290
-  longitude: -67.7550
-  elevation: 5050
-  timezone: America/Santiago
-  description: ALMA Array Operations Site, Chajnantor, Chile
-
 kitt_peak:
   name: Kitt Peak National Observatory
   latitude: 31.9584

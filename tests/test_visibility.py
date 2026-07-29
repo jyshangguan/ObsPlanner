@@ -59,6 +59,40 @@ def test_visibility_result_shapes_and_constraints():
     assert np.all(result.sun_altitude[result.observable] <= -18)
 
 
+def test_show_daytime_uses_a_full_24_hour_observing_day():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+    result = calculate_visibility(
+        target,
+        observer,
+        date(2026, 3, 15),
+        cadence_minutes=30,
+        show_daytime=True,
+    )
+
+    duration = float((result.times[-1] - result.times[0]).to_value("hour"))
+    local_start = result.times[0].to_datetime(timezone=observer.timezone)
+    assert duration == pytest.approx(24)
+    assert local_start.hour == 12
+    assert len(result.times) == 49
+    assert np.any(result.sun_altitude > 0)
+    assert np.any(result.sun_altitude <= -18)
+
+
+def test_night_only_remains_the_default():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+    result = calculate_visibility(
+        target,
+        observer,
+        date(2026, 3, 15),
+        cadence_minutes=30,
+    )
+
+    duration = float((result.times[-1] - result.times[0]).to_value("hour"))
+    assert duration < 24
+
+
 def test_strict_altitude_can_remove_all_windows():
     target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
     observer = load_observatories()["palomar"].to_observer()
@@ -149,6 +183,67 @@ def test_moon_curve_can_be_hidden():
     assert "Moon altitude" not in line_labels
     assert "Moon altitude" not in legend_labels
     assert "Moon separation < 30°" not in legend_labels
+
+
+def test_current_time_marker_is_drawn_inside_single_target_night():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target, observer, date(2026, 3, 15), constraints, cadence_minutes=30
+    )
+    current_time = result.times[len(result.times) // 2]
+
+    figure = plot_visibility(
+        result,
+        constraints,
+        "Local time",
+        current_time=current_time,
+    )
+
+    current_line = next(
+        line
+        for line in figure.axes[0].get_lines()
+        if line.get_label() == "Current time"
+    )
+    expected_hours = float((current_time - result.times[0]).to_value("hour"))
+    assert current_line.get_xdata()[0] == pytest.approx(expected_hours)
+    assert current_line.get_color() == "#00cfe8"
+    assert current_line.get_linewidth() == pytest.approx(0.8)
+    assert current_line.get_linestyle() == "--"
+
+
+def test_current_time_marker_works_in_combined_plot_and_hides_outside_night():
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    result = calculate_visibility(
+        target, observer, date(2026, 3, 15), constraints, cadence_minutes=30
+    )
+    colors = {"NGC 3783": "#123456"}
+    inside = result.times[len(result.times) // 2]
+
+    visible_figure = plot_combined_visibility(
+        [result],
+        constraints,
+        colors=colors,
+        current_time=inside,
+    )
+    visible_labels = [
+        line.get_label() for line in visible_figure.axes[0].get_lines()
+    ]
+    assert "Current time" in visible_labels
+
+    hidden_figure = plot_combined_visibility(
+        [result],
+        constraints,
+        colors=colors,
+        current_time=Time("2026-03-17T00:00:00"),
+    )
+    hidden_labels = [
+        line.get_label() for line in hidden_figure.axes[0].get_lines()
+    ]
+    assert "Current time" not in hidden_labels
 
 
 def test_combined_plot_uses_target_colors():

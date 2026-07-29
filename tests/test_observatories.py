@@ -9,7 +9,8 @@ def test_catalog_contains_required_sites():
     sites = load_observatories()
     required = {"paranal", "la_silla", "palomar", "las_campanas"}
     assert required <= sites.keys()
-    assert len(sites) >= 15
+    assert "alma" not in sites
+    assert len(sites) >= 14
 
 
 def test_catalog_sites_create_observers():

@@ -126,6 +126,36 @@ def _night_bounds(
         return start, end, evening, morning, warning
 
 
+def _full_day_bounds(
+    observer: Observer, observing_date: date
+) -> tuple[Time, Time, Time | None, Time | None, str | None]:
+    """Return the 24 hours from local noon that contain an observing night."""
+    timezone = observer.timezone
+    if isinstance(timezone, str):
+        timezone = ZoneInfo(timezone)
+    local_noon = datetime.combine(observing_date, time(12, 0), tzinfo=timezone)
+    start = Time(local_noon)
+    end = start + 24 * u.hour
+
+    evening = morning = None
+    warning = None
+    try:
+        evening = observer.twilight_evening_astronomical(start, which="next")
+        morning = observer.twilight_morning_astronomical(evening, which="next")
+        masked = bool(np.any(np.ma.getmaskarray(evening.value))) or bool(
+            np.any(np.ma.getmaskarray(morning.value))
+        )
+        if masked or morning <= evening:
+            raise ValueError("Astronomical twilight is not defined.")
+    except (ValueError, TypeError):
+        evening = morning = None
+        warning = (
+            "Astronomical twilight is not defined for this site and date. "
+            "The Sun-altitude constraint still applies."
+        )
+    return start, end, evening, morning, warning
+
+
 def find_observing_windows(
     times: Time, observable: np.ndarray
 ) -> tuple[ObservingWindow, ...]:
@@ -148,15 +178,15 @@ def calculate_visibility(
     observing_date: date,
     constraints: VisibilityConstraints | None = None,
     cadence_minutes: int = 5,
+    show_daytime: bool = False,
 ) -> VisibilityResult:
-    """Calculate target visibility for one local observing night."""
+    """Calculate visibility for a local observing night or its full 24-hour day."""
     constraints = constraints or VisibilityConstraints()
     if cadence_minutes <= 0:
         raise ValueError("Cadence must be positive.")
 
-    start, end, evening, morning, warning = _night_bounds(
-        observer, observing_date
-    )
+    bounds = _full_day_bounds if show_daytime else _night_bounds
+    start, end, evening, morning, warning = bounds(observer, observing_date)
     duration_minutes = float((end - start).to_value(u.minute))
     offsets = np.arange(0, duration_minutes + cadence_minutes, cadence_minutes)
     offsets = offsets[offsets <= duration_minutes + 1e-8]

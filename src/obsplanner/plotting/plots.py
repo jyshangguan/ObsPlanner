@@ -7,6 +7,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MultipleLocator
+from astropy.time import Time
 
 from obsplanner.visibility import VisibilityConstraints, VisibilityResult
 
@@ -110,12 +111,35 @@ def _shade_sky(ax, elapsed_hours: np.ndarray, sun_altitude: np.ndarray) -> None:
         seen.add(category)
 
 
+def _add_current_time_marker(
+    ax,
+    result: VisibilityResult,
+    current_time: Time | None,
+):
+    """Draw the current time when it falls inside the plotted observing night."""
+    if current_time is None:
+        return None
+    current_time = Time(current_time)
+    if current_time < result.times[0] or current_time > result.times[-1]:
+        return None
+    elapsed_hours = float((current_time - result.times[0]).to_value(u.hour))
+    return ax.axvline(
+        elapsed_hours,
+        color="#00cfe8",
+        linewidth=0.8,
+        linestyle="--",
+        label="Current time",
+        zorder=8,
+    )
+
+
 def plot_visibility(
     result: VisibilityResult,
     constraints: VisibilityConstraints,
     time_axis: str = "Local time",
     *,
     show_moon: bool = True,
+    current_time: Time | None = None,
 ) -> plt.Figure:
     """Plot one visibility curve with equivalent airmass and altitude scales."""
     elapsed_hours = np.asarray(
@@ -191,8 +215,12 @@ def plot_visibility(
         label="Airmass limit",
         zorder=3,
     )
+    current_time_line = _add_current_time_marker(
+        airmass_axis, result, current_time
+    )
     formatter, x_label = _time_axis_labeler(result, time_axis)
-    airmass_axis.xaxis.set_major_locator(MultipleLocator(1))
+    tick_interval = 2 if elapsed_hours[-1] - elapsed_hours[0] > 16 else 1
+    airmass_axis.xaxis.set_major_locator(MultipleLocator(tick_interval))
     airmass_axis.xaxis.set_major_formatter(formatter)
     airmass_axis.set_xlabel(x_label)
     airmass_axis.set_xlim(elapsed_hours[0], elapsed_hours[-1])
@@ -234,6 +262,8 @@ def plot_visibility(
     legend_handles = [visibility_line]
     if moon_line is not None:
         legend_handles.append(moon_line)
+    if current_time_line is not None:
+        legend_handles.append(current_time_line)
     legend_handles.append(airmass_limit)
     airmass_axis.legend(
         handles=legend_handles,
@@ -254,6 +284,7 @@ def plot_combined_visibility(
     *,
     colors: Mapping[str, str],
     show_moon: bool = True,
+    current_time: Time | None = None,
 ) -> plt.Figure:
     """Plot several targets together with user-selected colors."""
     if not results:
@@ -335,10 +366,16 @@ def plot_combined_visibility(
         label="Airmass limit",
         zorder=3,
     )
+    current_time_line = _add_current_time_marker(
+        airmass_axis, reference, current_time
+    )
+    if current_time_line is not None:
+        legend_handles.append(current_time_line)
     legend_handles.append(airmass_limit)
 
     formatter, x_label = _time_axis_labeler(reference, time_axis)
-    airmass_axis.xaxis.set_major_locator(MultipleLocator(1))
+    tick_interval = 2 if elapsed_hours[-1] - elapsed_hours[0] > 16 else 1
+    airmass_axis.xaxis.set_major_locator(MultipleLocator(tick_interval))
     airmass_axis.xaxis.set_major_formatter(formatter)
     airmass_axis.set_xlabel(x_label)
     airmass_axis.set_xlim(elapsed_hours[0], elapsed_hours[-1])

@@ -13,6 +13,8 @@ source_root = project_root / "src"
 
 datas = [
     (str(project_root / "app.py"), "."),
+    (str(project_root / "assets" / "ObsPlanner.png"), "assets"),
+    (str(project_root / "assets" / "obsplanner-open-app.png"), "assets"),
     (str(project_root / "data" / "observatories.yaml"), "data"),
 ]
 for package in ("astroplan", "matplotlib", "streamlit", "webview"):
@@ -128,12 +130,12 @@ application = BUNDLE(
     name="ObsPlanner.app",
     icon=str(project_root / "assets" / "ObsPlanner.icns"),
     bundle_identifier="com.jyshangguan.obsplanner",
-    version="0.1.0",
+    version="0.1.1",
     info_plist={
         "CFBundleDisplayName": "ObsPlanner",
         "CFBundleName": "ObsPlanner",
-        "CFBundleShortVersionString": "0.1.0",
-        "CFBundleVersion": "1",
+        "CFBundleShortVersionString": "0.1.1",
+        "CFBundleVersion": "2",
         "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
         "NSHumanReadableCopyright": "Copyright © 2026 ObsPlanner contributors",

@@ -24,6 +24,7 @@ class DesktopPaths:
 
     resource_root: Path
     app_script: Path
+    app_logo: Path
     observatory_catalog: Path
     data_dir: Path
     cache_dir: Path
@@ -35,6 +36,7 @@ class DesktopPaths:
         return cls(
             resource_root=root,
             app_script=root / "app.py",
+            app_logo=root / "assets" / "obsplanner-open-app.png",
             observatory_catalog=root / "data" / "observatories.yaml",
             data_dir=Path(user_data_path("ObsPlanner", appauthor=False)),
             cache_dir=Path(user_cache_path("ObsPlanner", appauthor=False)),
@@ -48,7 +50,7 @@ class DesktopPaths:
     def validate_resources(self) -> None:
         missing = [
             path
-            for path in (self.app_script, self.observatory_catalog)
+            for path in (self.app_script, self.app_logo, self.observatory_catalog)
             if not path.is_file()
         ]
         if missing:

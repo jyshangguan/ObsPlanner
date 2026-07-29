@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import base64
 import sys
 from datetime import date
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import streamlit as st
+from astropy.time import Time
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
+APP_LOGO = PROJECT_ROOT / "assets" / "ObsPlanner.png"
 
 from obsplanner.observatories import (  # noqa: E402
     ObservatoryCatalogError,
@@ -33,7 +36,7 @@ from obsplanner.visibility import (  # noqa: E402
 
 st.set_page_config(
     page_title="ObsPlanner",
-    page_icon="🔭",
+    page_icon=str(APP_LOGO),
     layout="wide",
 )
 st.markdown(
@@ -45,6 +48,30 @@ st.markdown(
         }
         .plot-spacer {
             height: 0.75rem;
+        }
+        [data-testid="stSidebarHeader"] {
+            height: 3.25rem;
+            min-height: 3.25rem;
+        }
+        [data-testid="stSidebarContent"] {
+            padding-top: 0.2rem;
+        }
+        .obsplanner-brand {
+            align-items: center;
+            display: flex;
+            gap: 0.75rem;
+            margin: 0 0 0.3rem;
+        }
+        .obsplanner-brand img {
+            border-radius: 0.7rem;
+            height: 3rem;
+            width: 3rem;
+        }
+        .obsplanner-brand-name {
+            color: var(--text-color);
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1;
         }
     </style>
     """,
@@ -105,7 +132,16 @@ except ObservatoryCatalogError as exc:
     st.stop()
 
 with st.sidebar:
-    st.title("🔭 ObsPlanner")
+    logo_data = base64.b64encode(APP_LOGO.read_bytes()).decode("ascii")
+    st.markdown(
+        (
+            '<div class="obsplanner-brand">'
+            f'<img src="data:image/png;base64,{logo_data}" alt="ObsPlanner logo">'
+            '<span class="obsplanner-brand-name">ObsPlanner</span>'
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
     st.caption("Astronomical visibility planner")
 
     st.header("Targets")
@@ -263,7 +299,9 @@ with st.sidebar:
 
 site_keys = sorted(catalog, key=lambda key: catalog[key].name)
 default_index = site_keys.index("paranal")
-site_column, layout_column = st.columns([1.15, 1])
+site_column, layout_column, daytime_column, settings_column = st.columns(
+    [1.15, 1, 0.55, 0.45]
+)
 with site_column:
     selected_key = st.selectbox(
         "Observatory",
@@ -283,6 +321,34 @@ with layout_column:
         horizontal=True,
         key="plot_mode",
     )
+with daytime_column:
+    show_daytime = st.toggle(
+        "Show the daytime",
+        value=False,
+        help=(
+            "Extend the plot to the complete 24-hour observing day, from "
+            "local noon on the selected date to local noon the next day."
+        ),
+    )
+with settings_column:
+    with st.popover("Settings", width="stretch"):
+        refresh_label = st.selectbox(
+            "Current-time update frequency",
+            ("10 seconds", "30 seconds", "1 minute", "5 minutes"),
+            index=0,
+            help=(
+                "How often the visibility plot updates the current-time "
+                "indicator."
+            ),
+        )
+
+refresh_intervals = {
+    "10 seconds": "10s",
+    "30 seconds": "30s",
+    "1 minute": "1m",
+    "5 minutes": "5m",
+}
+refresh_interval = refresh_intervals[refresh_label]
 
 if not st.session_state.targets:
     st.info("Add at least one target in the sidebar to create a visibility plot.")
@@ -302,6 +368,7 @@ try:
                 observer,
                 observing_date,
                 constraints,
+                show_daytime=show_daytime,
             )
             for target in st.session_state.targets
         ]
@@ -318,26 +385,36 @@ except Exception as exc:
     st.stop()
 
 st.markdown('<div class="plot-spacer"></div>', unsafe_allow_html=True)
-if plot_mode == "Combined panel":
-    visibility_figure = plot_combined_visibility(
-        results,
-        constraints,
-        time_axis,
-        colors=st.session_state.target_colors,
-        show_moon=show_moon,
-    )
-    st.pyplot(visibility_figure, width="stretch")
-    plt.close(visibility_figure)
-else:
-    for result in results:
-        visibility_figure = plot_visibility(
-            result,
+
+
+@st.fragment(run_every=refresh_interval)
+def render_visibility_plots():
+    current_time = Time.now()
+    if plot_mode == "Combined panel":
+        visibility_figure = plot_combined_visibility(
+            results,
             constraints,
             time_axis,
+            colors=st.session_state.target_colors,
             show_moon=show_moon,
+            current_time=current_time,
         )
         st.pyplot(visibility_figure, width="stretch")
         plt.close(visibility_figure)
+    else:
+        for result in results:
+            visibility_figure = plot_visibility(
+                result,
+                constraints,
+                time_axis,
+                show_moon=show_moon,
+                current_time=current_time,
+            )
+            st.pyplot(visibility_figure, width="stretch")
+            plt.close(visibility_figure)
+
+
+render_visibility_plots()
 
 st.markdown(
     "**Background darkness:** pale yellow is daylight (Sun above 0°); "
@@ -355,3 +432,8 @@ st.caption(
 warnings = sorted({result.warning for result in results if result.warning})
 for warning in warnings:
     st.warning(warning)
+
+st.markdown(
+    '<span id="obsplanner-app-ready" style="display:none"></span>',
+    unsafe_allow_html=True,
+)
