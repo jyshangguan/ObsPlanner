@@ -161,7 +161,7 @@ with st.sidebar:
         name_column, resolve_column = st.columns([5, 1], vertical_alignment="bottom")
         with name_column:
             target_name = st.text_input(
-                "Target name", value="PDS 456", key="target_name_input"
+                "Target name", value="", key="target_name_input"
             )
         with resolve_column:
             resolve_name = st.button(
@@ -182,7 +182,7 @@ with st.sidebar:
 
         coordinate_text = st.text_input(
             "Coordinates (RA, Dec)",
-            value="262.082500, -14.932200",
+            value="",
             key="target_coordinates_input",
             help=(
                 "Use sexagesimal RA and Dec or decimal degrees, separated "
@@ -330,51 +330,64 @@ else:
     sky_column = None
 
 with controls_column:
-    site_column, _top_spacer = st.columns([1.15, 2.0])
+    site_column, twilight_column = st.columns(
+        [1.15, 2.0], vertical_alignment="top"
+    )
     with site_column:
         selected_key = st.selectbox(
             "Observatory",
-        site_keys,
-        index=default_index,
-        format_func=lambda key: catalog[key].name,
-        key="selected_observatory",
-        on_change=remember_selected_observatory,
-    )
+            site_keys,
+            index=default_index,
+            format_func=lambda key: catalog[key].name,
+            key="selected_observatory",
+            on_change=remember_selected_observatory,
+        )
         site = catalog[selected_key]
         st.caption(
             f"{site.latitude:.4f}°, {site.longitude:.4f}° · "
             f"{site.elevation:.0f} m · {site.timezone}"
         )
-    date_column, time_column, _control_spacer = st.columns([0.75, 0.85, 1.55])
-    with time_column:
+        st.session_state.setdefault("use_current_time", True)
+        use_current_sky_time = bool(st.session_state.use_current_time)
+        date_column, fixed_time_column = st.columns([1.7, 1])
+        with date_column:
+            observatory_today = datetime.now(ZoneInfo(site.timezone)).date()
+            observing_date = st.date_input(
+                "Observing date",
+                value=observatory_today,
+                key=(
+                    f"current_observing_date_{selected_key}_{observatory_today}"
+                    if use_current_sky_time
+                    else f"observing_date_{selected_key}"
+                ),
+                disabled=use_current_sky_time,
+                help=f"Calendar date at {site.name} ({site.timezone}).",
+            )
+        sky_clock_time = None
+        if not use_current_sky_time:
+            with fixed_time_column:
+                sky_clock_text = st.text_input(
+                    "Time (HH:MM)",
+                    value="00:00",
+                    key=f"fixed_sky_time_{selected_key}",
+                    help=f"Local time at {site.name} ({site.timezone}).",
+                )
+                try:
+                    sky_clock_time = datetime.strptime(
+                        sky_clock_text.strip(), "%H:%M"
+                    ).time()
+                except ValueError:
+                    st.error("Enter time as HH:MM, for example 21:30.")
         use_current_sky_time = st.toggle(
             "Current time",
-            value=True,
+            key="use_current_time",
             help=(
                 "Use the current time and lock the observing date to the current "
                 "date at the selected observatory."
             ),
         )
-        if show_sky_plot and not use_current_sky_time:
-            sky_clock_time = st.time_input(
-                "Sky plot time",
-                value=time(0, 0),
-                step=60,
-                help=f"Local time at {site.name} ({site.timezone}).",
-            )
-    with date_column:
-        observatory_today = datetime.now(ZoneInfo(site.timezone)).date()
-        observing_date = st.date_input(
-            "Observing date",
-            value=observatory_today,
-            key=(
-                f"current_observing_date_{selected_key}_{observatory_today}"
-                if use_current_sky_time
-                else f"observing_date_{selected_key}"
-            ),
-            disabled=use_current_sky_time,
-            help=f"Calendar date at {site.name} ({site.timezone}).",
-        )
+    with twilight_column:
+        twilight_placeholder = st.empty()
 
 refresh_intervals = {
     "10 seconds": "10s",
@@ -383,6 +396,55 @@ refresh_intervals = {
     "5 minutes": "5m",
 }
 refresh_interval = refresh_intervals[refresh_label]
+
+observer = site.to_observer()
+local_noon = Time(
+    datetime.combine(
+        observing_date,
+        time(12, 0),
+        tzinfo=ZoneInfo(site.timezone),
+    )
+)
+try:
+    sunset = observer.sun_set_time(local_noon, which="next")
+    civil_twilight = observer.twilight_evening_civil(local_noon, which="next")
+    nautical_twilight = observer.twilight_evening_nautical(
+        local_noon, which="next"
+    )
+    evening_twilight = observer.twilight_evening_astronomical(
+        local_noon, which="next"
+    )
+    sunset_local = sunset.to_datetime(timezone=ZoneInfo(site.timezone))
+    civil_twilight_local = civil_twilight.to_datetime(
+        timezone=ZoneInfo(site.timezone)
+    )
+    nautical_twilight_local = nautical_twilight.to_datetime(
+        timezone=ZoneInfo(site.timezone)
+    )
+    twilight_local = evening_twilight.to_datetime(
+        timezone=ZoneInfo(site.timezone)
+    )
+    evening_times_html = (
+        "<div>"
+        '<div style="font-weight:600; margin-bottom:0.2rem;">Evening times</div>'
+        f'<div>Sunset: {sunset_local.strftime("%H:%M")}</div>'
+        f'<div>Civil twilight: {civil_twilight_local.strftime("%H:%M")}</div>'
+        f'<div>Nautical twilight: {nautical_twilight_local.strftime("%H:%M")}</div>'
+        f'<div>Astronomical twilight: {twilight_local.strftime("%H:%M")}</div>'
+        f'<div style="font-size:0.8rem; opacity:0.7;">{site.timezone}</div>'
+        "</div>"
+    )
+except (ValueError, TypeError):
+    evening_times_html = (
+        "<div>"
+        '<div style="font-weight:600;">Evening times</div>'
+        "<div>Sunset or astronomical twilight is not defined for this date.</div>"
+        "</div>"
+    )
+twilight_placeholder.markdown(evening_times_html, unsafe_allow_html=True)
+
+if not use_current_sky_time and sky_clock_time is None:
+    st.stop()
 
 if not st.session_state.targets:
     st.info("Add at least one target in the sidebar to create a visibility plot.")
@@ -394,7 +456,6 @@ constraints = VisibilityConstraints(
     minimum_moon_separation=float(minimum_moon_separation),
 )
 try:
-    observer = site.to_observer()
     with st.spinner("Calculating target visibility…"):
         results = [
             calculate_visibility(
