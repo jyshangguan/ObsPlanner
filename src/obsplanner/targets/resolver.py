@@ -86,3 +86,23 @@ def parse_manual_coordinates(
 
     clean_name = name.strip() or "Manual target"
     return Target(name=clean_name, coord=coord)
+
+
+def parse_coordinate_pair(coordinates: str, name: str = "Manual target") -> Target:
+    """Parse a comma-separated RA and Dec pair, inferring the RA format."""
+    parts = [part.strip() for part in coordinates.split(",")]
+    if len(parts) != 2 or not all(parts):
+        raise TargetResolutionError(
+            "Enter coordinates as a comma-separated pair: RA, Dec."
+        )
+    ra, dec = parts
+    normalized_ra = ra.lower()
+    sexagesimal_ra = ":" in normalized_ra or any(
+        marker in normalized_ra for marker in ("h", "m", "s")
+    )
+    return parse_manual_coordinates(
+        ra,
+        dec,
+        name,
+        decimal_degrees=not sexagesimal_ra,
+    )

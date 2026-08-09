@@ -6,12 +6,130 @@ from zoneinfo import ZoneInfo
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.coordinates import AltAz, get_body
 from matplotlib.ticker import FuncFormatter, MultipleLocator
 from astropy.time import Time
 
+from obsplanner.targets import Target
 from obsplanner.visibility import VisibilityConstraints, VisibilityResult
 
 TIME_AXES = ("Local time", "UTC", "LST")
+
+
+def plot_sky(
+    targets: Sequence[Target],
+    observer,
+    observation_time: Time,
+    *,
+    colors: Mapping[str, str],
+    show_moon: bool = True,
+) -> plt.Figure:
+    """Plot target positions in the local sky at one instant."""
+    if not targets:
+        raise ValueError("At least one target is required.")
+
+    figure = plt.figure(figsize=(5.2, 5.2), constrained_layout=True)
+    sky_axis = figure.add_subplot(111, projection="polar")
+    observation_time = Time(observation_time)
+    frame = AltAz(obstime=observation_time, location=observer.location)
+
+    horizon_radius = 1.0
+    outer_radius = np.sqrt(2.0)
+    sky_axis.set_theta_zero_location("N")
+    sky_axis.set_theta_direction(-1)
+    sky_axis.set_ylim(0, outer_radius)
+    sky_axis.axhspan(
+        horizon_radius,
+        outer_radius,
+        color="#d9d9d9",
+        alpha=0.45,
+        zorder=0,
+    )
+    sky_axis.axhline(horizon_radius, color="#555555", linewidth=1.2, zorder=1)
+
+    for target in targets:
+        altaz = target.coord.transform_to(frame)
+        azimuth = altaz.az.radian
+        altitude = altaz.alt.to_value(u.deg)
+        # Lambert azimuthal equal-area radius. The horizon is r=1; the shaded
+        # outer annulus contains targets currently below the horizon.
+        radius = np.sqrt(2.0) * np.sin(np.radians(90.0 - altitude) / 2.0)
+        color = colors.get(target.name, "#ff4b4b")
+        sky_axis.scatter(
+            azimuth,
+            radius,
+            s=70,
+            color=color,
+            edgecolor="white",
+            linewidth=0.7,
+            zorder=3,
+        )
+        sky_axis.annotate(
+            target.name,
+            (azimuth, radius),
+            xytext=(7, 5),
+            textcoords="offset points",
+            color=color,
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            annotation_clip=False,
+            zorder=4,
+        )
+
+    if show_moon:
+        moon = get_body("moon", observation_time, observer.location).transform_to(
+            frame
+        )
+        moon_azimuth = moon.az.radian
+        moon_altitude = moon.alt.to_value(u.deg)
+        moon_radius = np.sqrt(2.0) * np.sin(
+            np.radians(90.0 - moon_altitude) / 2.0
+        )
+        moon_color = "#d4a900"
+        sky_axis.scatter(
+            moon_azimuth,
+            moon_radius,
+            s=95,
+            color=moon_color,
+            edgecolor="white",
+            linewidth=0.8,
+            zorder=3,
+        )
+        sky_axis.annotate(
+            "Moon",
+            (moon_azimuth, moon_radius),
+            xytext=(7, 5),
+            textcoords="offset points",
+            color=moon_color,
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            annotation_clip=False,
+            zorder=4,
+        )
+
+    altitude_ticks = np.array([60, 30, 0, -30, -60])
+    radial_ticks = np.sqrt(2.0) * np.sin(
+        np.radians(90.0 - altitude_ticks) / 2.0
+    )
+    sky_axis.set_yticks(radial_ticks)
+    sky_axis.set_yticklabels([f"{value}°" for value in altitude_ticks])
+    sky_axis.set_rlabel_position(225)
+    sky_axis.set_thetagrids(
+        [0, 45, 90, 135, 180, 225, 270, 315],
+        ["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+    )
+    timezone = observer.timezone
+    local_time = observation_time.to_datetime(timezone=timezone)
+    sky_axis.set_title(
+        f"Sky plot\n{observer.name} · "
+        f"{local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+        fontsize=11,
+        pad=12,
+    )
+    sky_axis.grid(color="#8a8a8a", linestyle=":", linewidth=0.8, alpha=0.65)
+    return figure
 
 
 def airmass_to_altitude(airmass):
@@ -138,6 +256,7 @@ def plot_visibility(
     constraints: VisibilityConstraints,
     time_axis: str = "Local time",
     *,
+    color: str = "#ff4b4b",
     show_moon: bool = True,
     current_time: Time | None = None,
 ) -> plt.Figure:
@@ -178,7 +297,7 @@ def plot_visibility(
     visibility_line = airmass_axis.plot(
         elapsed_hours,
         target_clear_of_moon,
-        color="#ff4b4b",
+        color=color,
         linewidth=2.5,
         label=result.target.name,
         zorder=5,
@@ -186,7 +305,7 @@ def plot_visibility(
     moon_limited_line = airmass_axis.plot(
         elapsed_hours,
         target_close_to_moon,
-        color="#ff4b4b",
+        color=color,
         linewidth=2.5,
         linestyle="--",
         label=(

@@ -29,6 +29,7 @@ run it.
 - Sexagesimal or decimal manual coordinates
 - Persistent target list with individual entry, CSV import, and removal
 - Combined multi-target plot with an individual color picker for every target
+- Time-selectable local sky plot with color-matched markers and labels for every target
 - Separate-panel mode using the full single-target presentation
 - Fifteen built-in observatory locations with local time-zone support
 - Adjustable maximum-airmass and Moon-separation constraints

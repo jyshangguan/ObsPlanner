@@ -1,4 +1,5 @@
 from datetime import date
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pytest
@@ -9,8 +10,10 @@ from obsplanner.plotting import (
     airmass_to_altitude,
     altitude_to_airmass,
     plot_combined_visibility,
+    plot_sky,
     plot_visibility,
 )
+from obsplanner.plotting.plots import _time_axis_labeler
 from obsplanner.targets import parse_manual_coordinates
 from obsplanner.visibility import (
     VisibilityConstraints,
@@ -165,6 +168,97 @@ def test_combined_plot_time_axes(time_axis, expected_label):
     )
 
 
+def test_palomar_local_time_axis_uses_observer_timezone():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["palomar"].to_observer()
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target,
+        observer,
+        date(2026, 8, 8),
+        constraints,
+        cadence_minutes=30,
+        show_daytime=True,
+    )
+    current_time = Time("2026-08-09T01:50:00")
+
+    figure = plot_visibility(
+        result,
+        constraints,
+        "Local time",
+        current_time=current_time,
+    )
+    current_line = next(
+        line
+        for line in figure.axes[0].get_lines()
+        if line.get_label() == "Current time"
+    )
+    elapsed_hours = float(current_line.get_xdata()[0])
+    axis_label = figure.axes[0].xaxis.get_major_formatter()(elapsed_hours, 0)
+
+    assert axis_label == "18:50"
+    assert "America/Los_Angeles" in figure.axes[0].get_xlabel()
+
+
+def test_palomar_current_time_marker_appears_during_plotted_night():
+    target = parse_manual_coordinates("18:36:56", "+38:47:01", "Vega")
+    observer = load_observatories()["palomar"].to_observer()
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target,
+        observer,
+        date(2026, 8, 8),
+        constraints,
+        cadence_minutes=30,
+    )
+    current_time = Time("2026-08-09T02:10:00")
+
+    figure = plot_visibility(
+        result,
+        constraints,
+        "Local time",
+        current_time=current_time,
+    )
+    current_line = next(
+        line
+        for line in figure.axes[0].get_lines()
+        if line.get_label() == "Current time"
+    )
+    elapsed_hours = float(current_line.get_xdata()[0])
+
+    assert figure.axes[0].xaxis.get_major_formatter()(elapsed_hours, 0) == "19:10"
+    assert current_line.get_color() == "#00cfe8"
+
+
+@pytest.mark.parametrize(
+    "current_time",
+    [Time("2026-01-15T12:34:00"), Time("2026-08-09T01:50:00")],
+    ids=("january", "august"),
+)
+def test_local_time_axis_matches_every_observatory_timezone(current_time):
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    constraints = VisibilityConstraints()
+
+    for site in load_observatories().values():
+        observer = site.to_observer()
+        timezone = ZoneInfo(site.timezone)
+        local_date = current_time.to_datetime(timezone=timezone).date()
+        result = calculate_visibility(
+            target,
+            observer,
+            local_date,
+            constraints,
+            cadence_minutes=120,
+            show_daytime=True,
+        )
+        elapsed_hours = float((current_time - result.times[0]).to_value("hour"))
+        formatter, axis_label = _time_axis_labeler(result, "Local time")
+        expected = current_time.to_datetime(timezone=timezone).strftime("%H:%M")
+
+        assert formatter(elapsed_hours, 0) == expected, site.name
+        assert site.timezone in axis_label
+
+
 def test_moon_curve_can_be_hidden():
     target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
     observer = load_observatories()["paranal"].to_observer()
@@ -285,6 +379,73 @@ def test_combined_plot_uses_target_colors():
         text.get_text() for text in figure.axes[0].texts
     )
     assert "max " not in combined_summary
+
+
+def test_sky_plot_shows_all_targets_with_matching_colors_and_labels():
+    targets = [
+        parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783"),
+        parse_manual_coordinates("17:28:19", "-14:15:56", "PDS 456"),
+    ]
+    colors = {"NGC 3783": "#123456", "PDS 456": "#abcdef"}
+
+    observer = load_observatories()["paranal"].to_observer()
+    observation_time = Time("2026-03-15T04:00:00")
+    figure = plot_sky(
+        targets,
+        observer,
+        observation_time,
+        colors=colors,
+        show_moon=False,
+    )
+    sky_axis = figure.axes[0]
+
+    assert sky_axis.name == "polar"
+    assert sky_axis.get_title().startswith("Sky plot\nParanal Observatory ·")
+    assert len(sky_axis.collections) == 2
+    assert [text.get_text() for text in sky_axis.texts] == [
+        "NGC 3783",
+        "PDS 456",
+    ]
+    assert all(text.get_fontsize() == pytest.approx(14) for text in sky_axis.texts)
+    assert [text.get_color() for text in sky_axis.texts] == ["#123456", "#abcdef"]
+    assert [collection.get_facecolor()[0][:3] for collection in sky_axis.collections] == [
+        pytest.approx((0x12 / 255, 0x34 / 255, 0x56 / 255)),
+        pytest.approx((0xab / 255, 0xcd / 255, 0xef / 255)),
+    ]
+
+
+def test_sky_plot_includes_the_moon_by_default():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+
+    figure = plot_sky(
+        [target],
+        observer,
+        Time("2026-03-15T04:00:00"),
+        colors={"NGC 3783": "#123456"},
+    )
+
+    assert [text.get_text() for text in figure.axes[0].texts] == [
+        "NGC 3783",
+        "Moon",
+    ]
+
+
+def test_single_visibility_plot_accepts_target_color():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target, observer, date(2026, 3, 15), constraints, cadence_minutes=30
+    )
+
+    figure = plot_visibility(result, constraints, color="#123456")
+    target_lines = [
+        line for line in figure.axes[0].get_lines()
+        if line.get_label() in {"NGC 3783", "Moon separation < 30°"}
+    ]
+    assert target_lines
+    assert all(line.get_color() == "#123456" for line in target_lines)
 
 
 def test_airmass_and_altitude_scales_are_equivalent():

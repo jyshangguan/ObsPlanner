@@ -3,6 +3,7 @@ from .plots import (
     airmass_to_altitude,
     altitude_to_airmass,
     plot_combined_visibility,
+    plot_sky,
     plot_visibility,
 )
 
@@ -11,5 +12,6 @@ __all__ = [
     "airmass_to_altitude",
     "altitude_to_airmass",
     "plot_combined_visibility",
+    "plot_sky",
     "plot_visibility",
 ]
