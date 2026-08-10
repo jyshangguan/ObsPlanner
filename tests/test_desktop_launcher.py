@@ -6,6 +6,16 @@ from obsplanner.desktop import launcher
 from obsplanner.desktop.paths import DesktopPaths
 
 
+def test_macos_bundle_includes_required_matplotlib_renderers():
+    project_root = Path(__file__).resolve().parents[1]
+    specification = (
+        project_root / "packaging" / "macos" / "ObsPlanner.spec"
+    ).read_text(encoding="utf-8")
+
+    assert '"matplotlib.backends.backend_agg"' in specification
+    assert '"matplotlib.backends.backend_svg"' in specification
+
+
 def test_launcher_opens_window_and_stops_server(monkeypatch, tmp_path: Path):
     app_path = tmp_path / "app.py"
     catalog_path = tmp_path / "observatories.yaml"

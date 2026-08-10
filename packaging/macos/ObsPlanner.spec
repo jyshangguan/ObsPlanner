@@ -50,6 +50,7 @@ for package in ("obsplanner",):
 hidden_imports += [
     "webview.platforms.cocoa",
     "matplotlib.backends.backend_agg",
+    "matplotlib.backends.backend_svg",
     "streamlit.hello",
     "streamlit.runtime.scriptrunner.magic_funcs",
     "zoneinfo",
@@ -130,12 +131,12 @@ application = BUNDLE(
     name="ObsPlanner.app",
     icon=str(project_root / "assets" / "ObsPlanner.icns"),
     bundle_identifier="com.jyshangguan.obsplanner",
-    version="0.1.3",
+    version="0.1.4",
     info_plist={
         "CFBundleDisplayName": "ObsPlanner",
         "CFBundleName": "ObsPlanner",
-        "CFBundleShortVersionString": "0.1.3",
-        "CFBundleVersion": "4",
+        "CFBundleShortVersionString": "0.1.4",
+        "CFBundleVersion": "5",
         "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
         "NSHumanReadableCopyright": "Copyright © 2026 ObsPlanner contributors",
