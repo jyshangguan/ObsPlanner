@@ -10,9 +10,6 @@ def test_palomar_selection_survives_adding_a_target():
     assert app.session_state.filtered_state["targets"] == []
     assert _element(app.text_input, "Target name").value == ""
     assert _element(app.text_input, "Coordinates (RA, Dec)").value == ""
-
-    _element(app.selectbox, "Observatory").select("palomar")
-    app.run(timeout=30)
     assert _element(app.selectbox, "Observatory").value == "palomar"
 
     _element(app.text_input, "Target name").set_value("Vega")

@@ -10,9 +10,9 @@ other major observing sites around the world.
 
 ## Download
 
-The current release is **ObsPlanner 0.1.2**.
+The current release is **ObsPlanner 0.1.3**.
 
-[Download ObsPlanner 0.1.2 for macOS (Apple Silicon, ZIP)](https://github.com/jyshangguan/ObsPlanner/releases/download/v0.1.2/ObsPlanner-0.1.2-macOS-arm64.zip)
+[Download ObsPlanner 0.1.3 for macOS (Apple Silicon, ZIP)](https://github.com/jyshangguan/ObsPlanner/releases/download/v0.1.3/ObsPlanner-0.1.3-macOS-arm64.zip)
 
 The macOS application is self-contained: Conda, Python, and the source
 repository are not required. Extract the ZIP, move `ObsPlanner.app` to
@@ -169,7 +169,7 @@ To apply an ad-hoc signature for local testing:
 OBSPLANNER_ADHOC_SIGN=1 ./packaging/macos/build_macos.sh
 ```
 
-The v0.1.2 ZIP release uses the locally signed build and is not Apple-notarized.
+The v0.1.3 ZIP release uses the locally signed build and is not Apple-notarized.
 A future warning-free public distribution should use a Developer ID
 Application certificate, Apple notarization, and a stapled ticket. Signing
 credentials must remain in the developer keychain or CI secrets and must not

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class VisibilityConstraints:
     minimum_altitude: float = 30.0
-    maximum_airmass: float = 2.0
+    maximum_airmass: float = 3.0
     minimum_moon_separation: float = 30.0
 
     def __post_init__(self) -> None:

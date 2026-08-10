@@ -7,10 +7,23 @@ from obsplanner.observatories import ObservatoryCatalogError, load_observatories
 
 def test_catalog_contains_required_sites():
     sites = load_observatories()
-    required = {"paranal", "la_silla", "palomar", "las_campanas"}
+    required = {
+        "paranal",
+        "la_silla",
+        "palomar",
+        "las_campanas",
+        "xinglong",
+        "xue_shan_mu_chang",
+    }
     assert required <= sites.keys()
     assert "alma" not in sites
-    assert len(sites) >= 14
+    assert len(sites) >= 16
+
+    assert sites["xinglong"].timezone == "Asia/Shanghai"
+    assert sites["xinglong"].elevation == pytest.approx(900)
+    assert sites["xue_shan_mu_chang"].latitude == pytest.approx(37.9767)
+    assert sites["xue_shan_mu_chang"].longitude == pytest.approx(96.5857)
+    assert sites["xue_shan_mu_chang"].elevation == pytest.approx(4813)
 
 
 def test_catalog_sites_create_observers():

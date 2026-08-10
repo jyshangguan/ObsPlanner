@@ -178,18 +178,6 @@ def _time_axis_labeler(result: VisibilityResult, mode: str):
     return FuncFormatter(label), axis_label
 
 
-def _observation_summary(
-    result: VisibilityResult, constraints: VisibilityConstraints
-) -> str:
-    return f"Moon separation ≥ {constraints.minimum_moon_separation:.0f}°"
-
-
-def _combined_summary(
-    results: Sequence[VisibilityResult], constraints: VisibilityConstraints
-) -> str:
-    return f"Moon separation ≥ {constraints.minimum_moon_separation:.0f}°"
-
-
 def _shade_sky(ax, elapsed_hours: np.ndarray, sun_altitude: np.ndarray) -> None:
     """Shade daylight, twilight stages, and astronomical night."""
     stages = (
@@ -222,6 +210,7 @@ def _shade_sky(ax, elapsed_hours: np.ndarray, sun_altitude: np.ndarray) -> None:
             edges[start],
             edges[stop],
             color=color,
+            alpha=0.5,
             linewidth=0,
             label=label if category not in seen else None,
             zorder=0,
@@ -243,8 +232,8 @@ def _add_current_time_marker(
     elapsed_hours = float((current_time - result.times[0]).to_value(u.hour))
     return ax.axvline(
         elapsed_hours,
-        color="#00cfe8",
-        linewidth=0.8,
+        color="#d62728",
+        linewidth=2.0,
         linestyle="--",
         label="Current time",
         zorder=8,
@@ -259,13 +248,15 @@ def plot_visibility(
     color: str = "#ff4b4b",
     show_moon: bool = True,
     current_time: Time | None = None,
+    show_legend: bool = True,
 ) -> plt.Figure:
     """Plot one visibility curve with equivalent airmass and altitude scales."""
     elapsed_hours = np.asarray(
         (result.times - result.times[0]).to_value(u.hour), dtype=float
     )
     display_airmass = np.where(
-        (result.airmass >= 1) & (result.airmass <= 3.0),
+        (result.airmass >= 1)
+        & (result.airmass <= constraints.maximum_airmass),
         result.airmass,
         np.nan,
     )
@@ -280,7 +271,9 @@ def plot_visibility(
     )
     moon_curve = altitude_to_airmass(result.moon_altitude)
     moon_curve = np.where(
-        (result.moon_altitude > 0) & (moon_curve >= 1) & (moon_curve <= 3.0),
+        (result.moon_altitude > 0)
+        & (moon_curve >= 1)
+        & (moon_curve <= constraints.maximum_airmass),
         moon_curve,
         np.nan,
     )
@@ -298,15 +291,18 @@ def plot_visibility(
         elapsed_hours,
         target_clear_of_moon,
         color=color,
-        linewidth=2.5,
+        alpha=1.0,
+        linewidth=1.0,
         label=result.target.name,
         zorder=5,
     )[0]
+    visibility_line.set_gid("obs-target-0-solid")
     moon_limited_line = airmass_axis.plot(
         elapsed_hours,
         target_close_to_moon,
         color=color,
-        linewidth=2.5,
+        alpha=1.0,
+        linewidth=1.0,
         linestyle="--",
         label=(
             f"Moon separation < "
@@ -314,6 +310,7 @@ def plot_visibility(
         ),
         zorder=5,
     )[0]
+    moon_limited_line.set_gid("obs-target-0-dashed")
     moon_line = None
     if show_moon:
         moon_line = airmass_axis.plot(
@@ -326,14 +323,6 @@ def plot_visibility(
             zorder=4,
         )[0]
 
-    airmass_limit = airmass_axis.axhline(
-        constraints.maximum_airmass,
-        color="#ff8fa3",
-        linestyle=":",
-        linewidth=1.5,
-        label="Airmass limit",
-        zorder=3,
-    )
     current_time_line = _add_current_time_marker(
         airmass_axis, result, current_time
     )
@@ -341,41 +330,28 @@ def plot_visibility(
     tick_interval = 2 if elapsed_hours[-1] - elapsed_hours[0] > 16 else 1
     airmass_axis.xaxis.set_major_locator(MultipleLocator(tick_interval))
     airmass_axis.xaxis.set_major_formatter(formatter)
-    airmass_axis.set_xlabel(x_label)
+    airmass_axis.set_xlabel(x_label, fontsize=12)
     airmass_axis.set_xlim(elapsed_hours[0], elapsed_hours[-1])
     # Leave a small physical margin above airmass 1.0 so Streamlit's image
     # rendering cannot clip the upper tick or top spine.
-    airmass_axis.set_ylim(3.0, 0.97)
-    airmass_axis.set_ylabel("Airmass [sec(z)]", color="#d62728")
+    airmass_axis.set_ylim(constraints.maximum_airmass, 0.97)
+    airmass_axis.set_ylabel(
+        "Airmass [sec(z)]", color="#d62728", fontsize=12
+    )
     airmass_axis.tick_params(axis="y", colors="#d62728")
-    altitude_axis.set_ylabel("Altitude (degrees)", color="#9c6500")
+    altitude_axis.set_ylabel(
+        "Altitude (degrees)", color="#9c6500", fontsize=12
+    )
     altitude_axis.tick_params(axis="y", colors="#9c6500")
     altitude_axis.set_yticks([20, 30, 45, 60, 90])
 
     airmass_axis.grid(color="white", linestyle=":", linewidth=0.9, alpha=0.7)
     airmass_axis.set_title(
         f"{result.observer.name} · {result.observing_date.isoformat()} · "
-        f"Moon fraction {result.moon_illuminated_fraction:.0%}",
+        f"Moon fraction {result.moon_illuminated_fraction:.0%} · "
+        f"Moon separation ≥ {constraints.minimum_moon_separation:.0f}°",
         pad=8,
-    )
-    airmass_axis.text(
-        0.985,
-        0.975,
-        _observation_summary(result, constraints),
-        transform=airmass_axis.transAxes,
-        ha="right",
-        va="top",
-        fontsize=11.5,
-        linespacing=1.35,
-        color="#111111",
-        bbox={
-            "boxstyle": "round,pad=0.45",
-            "facecolor": "white",
-            "edgecolor": "#555555",
-            "linewidth": 0.6,
-            "alpha": 0.55,
-        },
-        zorder=10,
+        fontsize=14,
     )
 
     legend_handles = [visibility_line]
@@ -383,16 +359,16 @@ def plot_visibility(
         legend_handles.append(moon_line)
     if current_time_line is not None:
         legend_handles.append(current_time_line)
-    legend_handles.append(airmass_limit)
-    airmass_axis.legend(
-        handles=legend_handles,
-        loc="center left",
-        bbox_to_anchor=(1.06, 0.5),
-        ncols=1,
-        fontsize=12.3,
-        framealpha=0.85,
-        borderaxespad=0.5,
-    )
+    if show_legend:
+        airmass_axis.legend(
+            handles=legend_handles,
+            loc="center left",
+            bbox_to_anchor=(1.06, 0.5),
+            ncols=1,
+            fontsize=12.3,
+            framealpha=0.85,
+            borderaxespad=0.5,
+        )
     return figure
 
 
@@ -404,6 +380,7 @@ def plot_combined_visibility(
     colors: Mapping[str, str],
     show_moon: bool = True,
     current_time: Time | None = None,
+    show_legend: bool = True,
 ) -> plt.Figure:
     """Plot several targets together with user-selected colors."""
     if not results:
@@ -428,10 +405,11 @@ def plot_combined_visibility(
     _shade_sky(airmass_axis, elapsed_hours, reference.sun_altitude)
 
     legend_handles = []
-    for result in results:
+    for target_index, result in enumerate(results):
         color = colors.get(result.target.name, "#ff4b4b")
         display_airmass = np.where(
-            (result.airmass >= 1) & (result.airmass <= 3.0),
+            (result.airmass >= 1)
+            & (result.airmass <= constraints.maximum_airmass),
             result.airmass,
             np.nan,
         )
@@ -442,19 +420,23 @@ def plot_combined_visibility(
             elapsed_hours,
             np.where(separation_passes, display_airmass, np.nan),
             color=color,
-            linewidth=2.5,
+            alpha=1.0,
+            linewidth=1.0,
             label=result.target.name,
             zorder=5,
         )[0]
-        airmass_axis.plot(
+        solid_line.set_gid(f"obs-target-{target_index}-solid")
+        dashed_line = airmass_axis.plot(
             elapsed_hours,
             np.where(~separation_passes, display_airmass, np.nan),
             color=color,
-            linewidth=2.5,
+            alpha=1.0,
+            linewidth=1.0,
             linestyle="--",
             label="_nolegend_",
             zorder=5,
-        )
+        )[0]
+        dashed_line.set_gid(f"obs-target-{target_index}-dashed")
         legend_handles.append(solid_line)
 
     if show_moon:
@@ -462,7 +444,7 @@ def plot_combined_visibility(
         moon_curve = np.where(
             (reference.moon_altitude > 0)
             & (moon_curve >= 1)
-            & (moon_curve <= 3.0),
+            & (moon_curve <= constraints.maximum_airmass),
             moon_curve,
             np.nan,
         )
@@ -477,65 +459,44 @@ def plot_combined_visibility(
         )[0]
         legend_handles.append(moon_line)
 
-    airmass_limit = airmass_axis.axhline(
-        constraints.maximum_airmass,
-        color="#ff8fa3",
-        linestyle=":",
-        linewidth=1.5,
-        label="Airmass limit",
-        zorder=3,
-    )
     current_time_line = _add_current_time_marker(
         airmass_axis, reference, current_time
     )
     if current_time_line is not None:
         legend_handles.append(current_time_line)
-    legend_handles.append(airmass_limit)
 
     formatter, x_label = _time_axis_labeler(reference, time_axis)
     tick_interval = 2 if elapsed_hours[-1] - elapsed_hours[0] > 16 else 1
     airmass_axis.xaxis.set_major_locator(MultipleLocator(tick_interval))
     airmass_axis.xaxis.set_major_formatter(formatter)
-    airmass_axis.set_xlabel(x_label)
+    airmass_axis.set_xlabel(x_label, fontsize=12)
     airmass_axis.set_xlim(elapsed_hours[0], elapsed_hours[-1])
-    airmass_axis.set_ylim(3.0, 0.97)
-    airmass_axis.set_ylabel("Airmass [sec(z)]", color="#d62728")
+    airmass_axis.set_ylim(constraints.maximum_airmass, 0.97)
+    airmass_axis.set_ylabel(
+        "Airmass [sec(z)]", color="#d62728", fontsize=12
+    )
     airmass_axis.tick_params(axis="y", colors="#d62728")
-    altitude_axis.set_ylabel("Altitude (degrees)", color="#9c6500")
+    altitude_axis.set_ylabel(
+        "Altitude (degrees)", color="#9c6500", fontsize=12
+    )
     altitude_axis.tick_params(axis="y", colors="#9c6500")
     altitude_axis.set_yticks([20, 30, 45, 60, 90])
     airmass_axis.grid(color="white", linestyle=":", linewidth=0.9, alpha=0.7)
     airmass_axis.set_title(
         f"{reference.observer.name} · {reference.observing_date.isoformat()} · "
-        f"Moon fraction {reference.moon_illuminated_fraction:.0%}",
+        f"Moon fraction {reference.moon_illuminated_fraction:.0%} · "
+        f"Moon separation ≥ {constraints.minimum_moon_separation:.0f}°",
         pad=8,
+        fontsize=14,
     )
-    airmass_axis.text(
-        0.985,
-        0.975,
-        _combined_summary(results, constraints),
-        transform=airmass_axis.transAxes,
-        ha="right",
-        va="top",
-        fontsize=11.5,
-        linespacing=1.35,
-        color="#111111",
-        bbox={
-            "boxstyle": "round,pad=0.45",
-            "facecolor": "white",
-            "edgecolor": "#555555",
-            "linewidth": 0.6,
-            "alpha": 0.55,
-        },
-        zorder=10,
-    )
-    airmass_axis.legend(
-        handles=legend_handles,
-        loc="center left",
-        bbox_to_anchor=(1.06, 0.5),
-        ncols=1,
-        fontsize=12.3,
-        framealpha=0.85,
-        borderaxespad=0.5,
-    )
+    if show_legend:
+        airmass_axis.legend(
+            handles=legend_handles,
+            loc="center left",
+            bbox_to_anchor=(1.06, 0.5),
+            ncols=1,
+            fontsize=12.3,
+            framealpha=0.85,
+            borderaxespad=0.5,
+        )
     return figure

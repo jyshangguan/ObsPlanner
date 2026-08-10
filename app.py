@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import base64
+import html
+import io
+import json
 import sys
 from datetime import datetime, time
 from pathlib import Path
@@ -9,6 +12,7 @@ from zoneinfo import ZoneInfo
 import matplotlib.pyplot as plt
 import streamlit as st
 from astropy.time import Time
+from matplotlib.lines import Line2D
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -51,6 +55,45 @@ st.markdown(
         }
         .plot-spacer {
             height: 0.75rem;
+        }
+        .import-popup {
+            animation: import-popup-cycle 3s ease-in-out forwards;
+            background: #effbf3;
+            border: 2px solid #8bd3a7;
+            border-radius: 0.75rem;
+            box-shadow: 0 0.3rem 1rem rgba(25, 90, 50, 0.14);
+            color: #147a3d;
+            font-size: 1.05rem;
+            font-weight: 600;
+            left: 50%;
+            max-width: min(36rem, calc(100vw - 2rem));
+            opacity: 0;
+            padding: 0.8rem 1.25rem;
+            pointer-events: none;
+            position: fixed;
+            text-align: center;
+            top: 1rem;
+            transform: translate(-50%, -0.75rem);
+            visibility: hidden;
+            width: max-content;
+            z-index: 1000000;
+        }
+        @keyframes import-popup-cycle {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -0.75rem);
+                visibility: visible;
+            }
+            15%, 75% {
+                opacity: 1;
+                transform: translate(-50%, 0);
+                visibility: visible;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -0.5rem);
+                visibility: hidden;
+            }
         }
         [data-testid="stSidebarHeader"] {
             height: 3.25rem;
@@ -230,40 +273,41 @@ with st.sidebar:
             except TargetResolutionError as exc:
                 st.error(str(exc))
 
-    if "import_notice" in st.session_state:
-        st.success(st.session_state.pop("import_notice"))
-
     current_plot_mode = (
         "Separate panels"
         if st.session_state.get("separate_panels", False)
         else "Combined panel"
     )
     st.header(f"Current targets ({len(st.session_state.targets)})")
-    for index, listed_target in enumerate(list(st.session_state.targets)):
-        if current_plot_mode == "Combined panel":
-            name_column, color_column, remove_column = st.columns([3.5, 1.2, 1])
-            current_color = st.session_state.target_colors.setdefault(
-                listed_target.name,
-                DEFAULT_COLORS[index % len(DEFAULT_COLORS)],
-            )
-            with color_column:
-                st.session_state.target_colors[listed_target.name] = st.color_picker(
-                    f"{listed_target.name} color",
-                    value=current_color,
-                    key=f"target_color_{listed_target.name}",
-                    label_visibility="collapsed",
+    target_list = st.container(height=300, border=False)
+    with target_list:
+        for index, listed_target in enumerate(list(st.session_state.targets)):
+            if current_plot_mode == "Combined panel":
+                name_column, color_column, remove_column = st.columns([3.5, 1.2, 1])
+                current_color = st.session_state.target_colors.setdefault(
+                    listed_target.name,
+                    DEFAULT_COLORS[index % len(DEFAULT_COLORS)],
                 )
-        else:
-            name_column, remove_column = st.columns([4, 1])
-        name_column.write(listed_target.name)
-        if remove_column.button(
-            "✕",
-            key=f"remove_target_{index}_{listed_target.name}",
-            help=f"Remove {listed_target.name}",
-        ):
-            st.session_state.targets.pop(index)
-            st.session_state.target_colors.pop(listed_target.name, None)
-            st.rerun()
+                with color_column:
+                    st.session_state.target_colors[listed_target.name] = (
+                        st.color_picker(
+                            f"{listed_target.name} color",
+                            value=current_color,
+                            key=f"target_color_{listed_target.name}",
+                            label_visibility="collapsed",
+                        )
+                    )
+            else:
+                name_column, remove_column = st.columns([4, 1])
+            name_column.write(listed_target.name)
+            if remove_column.button(
+                "✕",
+                key=f"remove_target_{index}_{listed_target.name}",
+                help=f"Remove {listed_target.name}",
+            ):
+                st.session_state.targets.pop(index)
+                st.session_state.target_colors.pop(listed_target.name, None)
+                st.rerun()
     if st.session_state.targets and st.button(
         "Clear target list", width="stretch"
     ):
@@ -312,16 +356,23 @@ with st.sidebar:
             ),
         )
         maximum_airmass = st.slider(
-            "Maximum airmass", 1.0, 3.0, 2.0, 0.1
+            "Maximum airmass", 1.0, 3.0, 3.0, 0.1
         )
         minimum_moon_separation = st.slider(
             "Minimum Moon separation (degrees)", 0, 180, 30, 5
         )
 
+if "import_notice" in st.session_state:
+    import_notice = html.escape(st.session_state.pop("import_notice"))
+    st.markdown(
+        f'<div class="import-popup">{import_notice}</div>',
+        unsafe_allow_html=True,
+    )
+
 site_keys = sorted(catalog, key=lambda key: catalog[key].name)
-preferred_site = st.session_state.get("observatory_preference", "paranal")
+preferred_site = st.session_state.get("observatory_preference", "palomar")
 if preferred_site not in site_keys:
-    preferred_site = "paranal"
+    preferred_site = "palomar"
 default_index = site_keys.index(preferred_site)
 if show_sky_plot:
     controls_column, sky_column = st.columns([3, 1], vertical_alignment="top")
@@ -532,6 +583,166 @@ if sky_column is not None:
 st.markdown('<div class="plot-spacer"></div>', unsafe_allow_html=True)
 
 
+def render_visibility_figure(figure: plt.Figure) -> None:
+    """Render an interactive SVG plot beside its scrolling legend."""
+    plot_axis = figure.axes[0]
+    handles, labels = plot_axis.get_legend_handles_labels()
+    entries = [
+        (handle, label)
+        for handle, label in zip(handles, labels, strict=True)
+        if isinstance(handle, Line2D)
+        and label
+        and not label.startswith("_")
+        and not label.startswith("Moon separation <")
+    ]
+    legend_items = []
+    for handle, label in entries:
+        line_style = handle.get_linestyle()
+        border_style = {
+            "--": "dashed",
+            ":": "dotted",
+            "-.": "dashed",
+        }.get(line_style, "solid")
+        color = html.escape(str(handle.get_color()), quote=True)
+        safe_label = html.escape(label)
+        gid = handle.get_gid() or ""
+        target_key = gid.rsplit("-", 1)[0] if gid.startswith("obs-target-") else ""
+        target_attribute = (
+            f' data-target="{html.escape(target_key, quote=True)}"'
+            if target_key
+            else ""
+        )
+        legend_items.append(
+            f'<div class="legend-item"{target_attribute}>'
+            '<span class="legend-swatch" '
+            f'style="border-top: 1px {border_style} {color}"></span>'
+            f'<span class="legend-label">{safe_label}</span>'
+            "</div>"
+        )
+
+    svg_buffer = io.StringIO()
+    figure.savefig(svg_buffer, format="svg", bbox_inches="tight")
+    svg = svg_buffer.getvalue()
+    svg = svg[svg.find("<svg") :]
+    storage_key = "obsplanner-visibility:" + "|".join(
+        f"{handle.get_gid()}={label}"
+        for handle, label in entries
+        if (handle.get_gid() or "").startswith("obs-target-")
+    )
+    storage_key_json = json.dumps(storage_key)
+    component = f"""
+        <style>
+            html, body {{ margin: 0; overflow: hidden; }}
+            .visibility-layout {{
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: minmax(0, 5fr) minmax(9rem, 1.35fr);
+                height: 470px;
+            }}
+            .plot-panel {{ min-width: 0; }}
+            .plot-panel svg {{ display: block; height: auto; width: 100%; }}
+            .legend-panel {{
+                border: 1px solid rgba(49, 51, 63, 0.2);
+                border-radius: 0.5rem;
+                box-sizing: border-box;
+                height: 460px;
+                overflow-y: auto;
+                padding: 0.5rem;
+            }}
+            .legend-item {{
+                align-items: center;
+                display: flex;
+                gap: 0.7rem;
+                min-width: 0;
+                padding: 0.35rem 0.15rem;
+            }}
+            .legend-item[data-target] {{ cursor: pointer; }}
+            .legend-swatch {{ flex: 0 0 2.2rem; height: 0; }}
+            .legend-label {{ line-height: 1.25; overflow-wrap: anywhere; }}
+            .legend-item.selected .legend-swatch {{ border-top-width: 2px !important; }}
+            .legend-item.selected .legend-label {{ font-weight: 700; }}
+            [id^="obs-target-"] path {{ cursor: pointer; pointer-events: stroke; }}
+            [id^="obs-target-"].selected path:not(.curve-hit) {{
+                stroke-width: 2 !important;
+            }}
+            .curve-hit {{
+                fill: none !important;
+                pointer-events: stroke !important;
+                stroke: transparent !important;
+                stroke-width: 12 !important;
+            }}
+        </style>
+        <div class="visibility-layout">
+            <div class="plot-panel">{svg}</div>
+            <div class="legend-panel">{"".join(legend_items)}</div>
+        </div>
+        <script>
+            const storageKey = {storage_key_json};
+            const targetGroups = Array.from(
+                document.querySelectorAll('[id^="obs-target-"]')
+            );
+            const originalOrders = new Map();
+            targetGroups.forEach(group => {{
+                if (!originalOrders.has(group.parentElement)) {{
+                    originalOrders.set(
+                        group.parentElement,
+                        Array.from(group.parentElement.children)
+                    );
+                }}
+            }});
+
+            const restoreDrawingOrder = () => {{
+                originalOrders.forEach((children, parent) => {{
+                    children.forEach(child => parent.appendChild(child));
+                }});
+            }};
+
+            const selectTarget = (target) => {{
+                const selectedLegend = document.querySelector(
+                    `.legend-item[data-target="${{target}}"]`
+                );
+                const turnOff = selectedLegend?.classList.contains("selected");
+                restoreDrawingOrder();
+                document.querySelectorAll(".selected").forEach(
+                    element => element.classList.remove("selected")
+                );
+                if (turnOff) {{
+                    try {{ window.parent.sessionStorage.removeItem(storageKey); }}
+                    catch (error) {{ /* Selection still works without persistence. */ }}
+                    return;
+                }}
+                selectedLegend?.classList.add("selected");
+                document.querySelectorAll(`[id^="${{target}}-"]`).forEach(group => {{
+                    group.classList.add("selected");
+                    group.parentElement.appendChild(group);
+                }});
+                try {{ window.parent.sessionStorage.setItem(storageKey, target); }}
+                catch (error) {{ /* Selection still works without persistence. */ }}
+            }};
+
+            document.querySelectorAll(".legend-item[data-target]").forEach(item => {{
+                item.addEventListener("click", () => selectTarget(item.dataset.target));
+            }});
+            targetGroups.forEach(group => {{
+                const target = group.id.rsplit ? group.id.rsplit("-", 1)[0] :
+                    group.id.replace(/-(solid|dashed)$/, "");
+                group.querySelectorAll("path").forEach(path => {{
+                    const hitArea = path.cloneNode(false);
+                    hitArea.removeAttribute("id");
+                    hitArea.setAttribute("class", "curve-hit");
+                    group.insertBefore(hitArea, path);
+                }});
+                group.addEventListener("click", () => selectTarget(target));
+            }});
+            try {{
+                const savedTarget = window.parent.sessionStorage.getItem(storageKey);
+                if (savedTarget) selectTarget(savedTarget);
+            }} catch (error) {{ /* Selection still works without persistence. */ }}
+        </script>
+    """
+    st.iframe(component, width="stretch", height=475)
+
+
 @st.fragment(run_every=refresh_interval)
 def render_visibility_plots():
     context = st.session_state.active_plot_context
@@ -547,8 +758,9 @@ def render_visibility_plots():
             colors=target_colors,
             show_moon=context["show_moon"],
             current_time=current_time,
+            show_legend=False,
         )
-        st.pyplot(visibility_figure, width="stretch")
+        render_visibility_figure(visibility_figure)
         plt.close(visibility_figure)
     else:
         for result in plot_results:
@@ -561,8 +773,9 @@ def render_visibility_plots():
                 ),
                 show_moon=context["show_moon"],
                 current_time=current_time,
+                show_legend=False,
             )
-            st.pyplot(visibility_figure, width="stretch")
+            render_visibility_figure(visibility_figure)
             plt.close(visibility_figure)
 
 

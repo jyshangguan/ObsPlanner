@@ -22,6 +22,22 @@ palomar:
   timezone: America/Los_Angeles
   description: Caltech observatory, California, USA
 
+xinglong:
+  name: Xinglong Observatory
+  latitude: 40.3933
+  longitude: 117.5772
+  elevation: 900
+  timezone: Asia/Shanghai
+  description: NAOC optical observing station, Hebei, China
+
+xue_shan_mu_chang:
+  name: Xue-shan-mu-chang Observatory
+  latitude: 37.9767
+  longitude: 96.5857
+  elevation: 4813
+  timezone: Asia/Shanghai
+  description: XSMT-15m submillimeter telescope site, Qinghai, China
+
 las_campanas:
   name: Las Campanas Observatory
   latitude: -29.0154

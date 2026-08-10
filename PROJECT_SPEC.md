@@ -209,7 +209,7 @@ time-zone identifier rather than a fixed UTC offset.
 
 Expose these controls in the sidebar:
 
-- Maximum airmass, default 2.0.
+- Maximum airmass, default 3.0.
 - Minimum Moon separation, default 30 degrees.
 
 A time sample is observable only when all enabled constraints pass and the Sun
@@ -300,11 +300,11 @@ Use Matplotlib for the minimal release.
 - Use the target name as the solid target-curve legend label.
 - Draw the target curve solid where the selected Moon-separation constraint
   passes and dashed where it fails; do not use observability point markers.
-- Show the selected Moon-separation limit in the information box, not as a
-  separate dashed-curve legend entry.
+- Show the selected Moon-separation limit in the title after the Moon fraction,
+  not as a separate dashed-curve legend entry.
 - Plot finite, above-horizon values without allowing extreme near-horizon
   airmass to dominate the scale.
-- Show the maximum-airmass threshold.
+- Use the maximum-airmass threshold as the lower edge of the airmass axis.
 - Distinguish daylight, civil twilight, nautical twilight, astronomical
   twilight, and astronomical night using background shading.
 - Highlight samples satisfying all constraints.

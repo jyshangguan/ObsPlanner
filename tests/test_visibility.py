@@ -130,6 +130,13 @@ def test_combined_plot_time_axes(time_axis, expected_label):
     assert len(figure.axes) == 1
     assert figure.axes[0].get_ylabel() == "Airmass [sec(z)]"
     assert figure.axes[0].child_axes[0].get_ylabel() == "Altitude (degrees)"
+    assert figure.axes[0].xaxis.label.get_fontsize() == pytest.approx(12)
+    assert figure.axes[0].yaxis.label.get_fontsize() == pytest.approx(12)
+    assert (
+        figure.axes[0].child_axes[0].yaxis.label.get_fontsize()
+        == pytest.approx(12)
+    )
+    assert figure.axes[0].title.get_fontsize() == pytest.approx(14)
     assert expected_label in figure.axes[0].get_xlabel()
     labels = [line.get_label() for line in figure.axes[0].get_lines()]
     assert "Moon altitude" in labels
@@ -139,19 +146,10 @@ def test_combined_plot_time_axes(time_axis, expected_label):
         if line.get_label() == "Moon altitude"
     )
     assert moon_line.get_linestyle() == "--"
-    assert any(
-        "Moon separation ≥ 30°" in text.get_text()
-        for text in figure.axes[0].texts
-    )
-    summary = "\n".join(text.get_text() for text in figure.axes[0].texts)
-    assert "ICRS" not in summary
-    assert "Rise" not in summary
-    assert "Transit" not in summary
-    assert "Set" not in summary
-    assert "Maximum altitude" not in summary
-    assert "Minimum airmass" not in summary
-    assert figure.axes[0].texts[0].get_fontsize() == pytest.approx(11.5)
-    assert "Moon fraction" in figure.axes[0].get_title()
+    assert len(figure.axes[0].texts) == 0
+    title = figure.axes[0].get_title()
+    assert "Moon fraction" in title
+    assert title.endswith(" · Moon separation ≥ 30°")
     assert "2026-03-15" in figure.axes[0].get_title()
     assert "Paranal Observatory" in figure.axes[0].get_title()
     legend_labels = [
@@ -160,8 +158,8 @@ def test_combined_plot_time_axes(time_axis, expected_label):
     assert legend_labels == [
         "NGC 3783",
         "Moon altitude",
-        "Airmass limit",
     ]
+    assert figure.axes[0].get_ylim() == pytest.approx((3.0, 0.97))
     assert all(
         text.get_fontsize() == pytest.approx(12.3)
         for text in figure.axes[0].get_legend().get_texts()
@@ -227,7 +225,7 @@ def test_palomar_current_time_marker_appears_during_plotted_night():
     elapsed_hours = float(current_line.get_xdata()[0])
 
     assert figure.axes[0].xaxis.get_major_formatter()(elapsed_hours, 0) == "19:10"
-    assert current_line.get_color() == "#00cfe8"
+    assert current_line.get_color() == "#d62728"
 
 
 @pytest.mark.parametrize(
@@ -302,8 +300,9 @@ def test_current_time_marker_is_drawn_inside_single_target_night():
     )
     expected_hours = float((current_time - result.times[0]).to_value("hour"))
     assert current_line.get_xdata()[0] == pytest.approx(expected_hours)
-    assert current_line.get_color() == "#00cfe8"
-    assert current_line.get_linewidth() == pytest.approx(0.8)
+    assert current_line.get_color() == "#d62728"
+    assert current_line.get_linewidth() == pytest.approx(2.0)
+    assert current_line.get_color() == "#d62728"
     assert current_line.get_linestyle() == "--"
 
 
@@ -369,16 +368,56 @@ def test_combined_plot_uses_target_colors():
     legend_labels = [
         text.get_text() for text in figure.axes[0].get_legend().get_texts()
     ]
-    assert legend_labels == ["NGC 3783", "PDS 456", "Airmass limit"]
+    assert legend_labels == ["NGC 3783", "PDS 456"]
     solid_lines = {
         line.get_label(): line for line in figure.axes[0].get_lines()
     }
     assert solid_lines["NGC 3783"].get_color() == "#123456"
     assert solid_lines["PDS 456"].get_color() == "#abcdef"
-    combined_summary = "\n".join(
-        text.get_text() for text in figure.axes[0].texts
+    assert len(figure.axes[0].texts) == 0
+    assert "Moon separation ≥ 30°" in figure.axes[0].get_title()
+
+
+def test_combined_plot_can_leave_legend_to_the_ui():
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    target = parse_manual_coordinates(
+        "11:39:01", "-37:44:20", "NGC 3783"
     )
-    assert "max " not in combined_summary
+    result = calculate_visibility(
+        target,
+        observer,
+        date(2026, 3, 15),
+        constraints,
+        cadence_minutes=30,
+    )
+
+    figure = plot_combined_visibility(
+        [result],
+        constraints,
+        colors={"NGC 3783": "#123456"},
+        show_legend=False,
+    )
+
+    assert figure.axes[0].get_legend() is None
+    labels = [line.get_label() for line in figure.axes[0].get_lines()]
+    assert "NGC 3783" in labels
+    assert "Moon altitude" in labels
+    assert "Airmass limit" not in labels
+    target_line = next(
+        line for line in figure.axes[0].get_lines()
+        if line.get_label() == "NGC 3783"
+    )
+    assert target_line.get_linewidth() == pytest.approx(1.0)
+    assert target_line.get_alpha() == pytest.approx(1.0)
+    assert target_line.get_zorder() > max(
+        patch.get_zorder() for patch in figure.axes[0].patches
+    )
+    assert target_line.get_gid() == "obs-target-0-solid"
+    assert all(
+        patch.get_alpha() == pytest.approx(0.5)
+        for patch in figure.axes[0].patches
+    )
 
 
 def test_sky_plot_shows_all_targets_with_matching_colors_and_labels():
