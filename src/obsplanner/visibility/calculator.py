@@ -15,7 +15,9 @@ from obsplanner.targets import Target
 
 from .constraints import VisibilityConstraints
 
+# Offline-first: never hard-fail when bundled IERS predictions age past astropy's 30-day default; UT1-UTC age is irrelevant for visibility plotting.
 iers.conf.auto_download = False
+iers.conf.auto_max_age = None
 
 
 @dataclass(frozen=True)

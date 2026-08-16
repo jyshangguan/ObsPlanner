@@ -445,7 +445,7 @@ def test_sky_plot_shows_all_targets_with_matching_colors_and_labels():
         "NGC 3783",
         "PDS 456",
     ]
-    assert all(text.get_fontsize() == pytest.approx(14) for text in sky_axis.texts)
+    assert all(text.get_fontsize() == pytest.approx(12) for text in sky_axis.texts)
     assert [text.get_color() for text in sky_axis.texts] == ["#123456", "#abcdef"]
     assert [collection.get_facecolor()[0][:3] for collection in sky_axis.collections] == [
         pytest.approx((0x12 / 255, 0x34 / 255, 0x56 / 255)),
@@ -492,3 +492,122 @@ def test_airmass_and_altitude_scales_are_equivalent():
     assert airmass_to_altitude(2.0) == pytest.approx(30.0)
     assert altitude_to_airmass(90.0) == pytest.approx(1.0)
     assert altitude_to_airmass(30.0) == pytest.approx(2.0)
+
+
+def _sky_plot_targets():
+    return [
+        parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783"),
+        parse_manual_coordinates("17:28:19", "-14:15:56", "PDS 456"),
+    ]
+
+
+def test_sky_plot_selection_is_bold_and_drawn_on_top():
+    targets = _sky_plot_targets()
+    colors = {"NGC 3783": "#123456", "PDS 456": "#abcdef"}
+    observer = load_observatories()["paranal"].to_observer()
+
+    figure = plot_sky(
+        targets,
+        observer,
+        Time("2026-03-15T04:00:00"),
+        colors=colors,
+        show_moon=False,
+        selected="NGC 3783",
+    )
+    sky_axis = figure.axes[0]
+
+    # The selected target is drawn last, so it ends up on top.
+    assert [text.get_text() for text in sky_axis.texts] == [
+        "PDS 456",
+        "NGC 3783",
+    ]
+    selected_label = sky_axis.texts[-1]
+    other_label = sky_axis.texts[0]
+    assert selected_label.get_fontweight() == "bold"
+    assert other_label.get_fontweight() == "normal"
+    assert selected_label.get_fontsize() == 14
+    assert other_label.get_fontsize() == 12
+    label_frame = selected_label.get_bbox_patch()
+    assert label_frame is not None
+    assert label_frame.get_facecolor() == (1.0, 1.0, 1.0, 0.5)
+    assert label_frame.get_edgecolor()[:3] == (1.0, 0.0, 0.0)
+    assert other_label.get_bbox_patch() is None
+    assert selected_label.get_zorder() > other_label.get_zorder()
+    selected_marker = sky_axis.collections[-1]
+    other_marker = sky_axis.collections[0]
+    assert list(selected_marker.get_sizes()) == [70]
+    assert list(other_marker.get_sizes()) == [30]
+    assert selected_marker.get_zorder() > other_marker.get_zorder()
+    assert selected_marker.get_zorder() > 4  # above the Moon's label zorder
+
+
+def test_sky_plot_without_selection_keeps_input_order_and_normal_weight():
+    targets = _sky_plot_targets()
+    colors = {"NGC 3783": "#123456", "PDS 456": "#abcdef"}
+    observer = load_observatories()["paranal"].to_observer()
+
+    figure = plot_sky(
+        targets,
+        observer,
+        Time("2026-03-15T04:00:00"),
+        colors=colors,
+        show_moon=False,
+    )
+    sky_axis = figure.axes[0]
+
+    assert [text.get_text() for text in sky_axis.texts] == [
+        "NGC 3783",
+        "PDS 456",
+    ]
+    assert all(text.get_fontweight() == "normal" for text in sky_axis.texts)
+    assert all(text.get_fontsize() == 12 for text in sky_axis.texts)
+    assert all(text.get_bbox_patch() is None for text in sky_axis.texts)
+    zorders = [collection.get_zorder() for collection in sky_axis.collections]
+    assert zorders == [3, 3]
+    sizes = [list(c.get_sizes()) for c in sky_axis.collections]
+    assert sizes == [[30], [30]]
+
+
+def test_sky_plot_ignores_an_unknown_selected_name():
+    targets = _sky_plot_targets()
+    colors = {"NGC 3783": "#123456", "PDS 456": "#abcdef"}
+    observer = load_observatories()["paranal"].to_observer()
+
+    figure = plot_sky(
+        targets,
+        observer,
+        Time("2026-03-15T04:00:00"),
+        colors=colors,
+        show_moon=False,
+        selected="Not in the list",
+    )
+    sky_axis = figure.axes[0]
+
+    assert [text.get_text() for text in sky_axis.texts] == [
+        "NGC 3783",
+        "PDS 456",
+    ]
+    assert all(text.get_fontweight() == "normal" for text in sky_axis.texts)
+    assert all(text.get_fontsize() == 12 for text in sky_axis.texts)
+    assert all(text.get_bbox_patch() is None for text in sky_axis.texts)
+
+
+def test_single_visibility_plot_uses_target_index_in_curve_gids():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target, observer, date(2026, 3, 15), constraints, cadence_minutes=30
+    )
+
+    figure = plot_visibility(result, constraints, target_index=3)
+    gids = {line.get_gid() for line in figure.axes[0].get_lines()}
+    assert "obs-target-3-solid" in gids
+    assert "obs-target-3-dashed" in gids
+
+
+def test_calculator_never_hard_fails_on_stale_iers_predictions():
+    from astropy.utils import iers
+
+    assert iers.conf.auto_download is False
+    assert iers.conf.auto_max_age is None

@@ -23,8 +23,14 @@ def plot_sky(
     *,
     colors: Mapping[str, str],
     show_moon: bool = True,
+    selected: str | None = None,
 ) -> plt.Figure:
-    """Plot target positions in the local sky at one instant."""
+    """Plot target positions in the local sky at one instant.
+
+    When ``selected`` names one of the targets, that target is drawn on top
+    of every other marker with an enlarged bold label framed by a
+    semi-transparent white box with a red boundary.
+    """
     if not targets:
         raise ValueError("At least one target is required.")
 
@@ -47,7 +53,12 @@ def plot_sky(
     )
     sky_axis.axhline(horizon_radius, color="#555555", linewidth=1.2, zorder=1)
 
-    for target in targets:
+    # Draw the selected target last so it sits on top of the other markers.
+    ordered_targets = sorted(
+        targets, key=lambda candidate: candidate.name == selected
+    )
+    for target in ordered_targets:
+        is_selected = selected is not None and target.name == selected
         altaz = target.coord.transform_to(frame)
         azimuth = altaz.az.radian
         altitude = altaz.alt.to_value(u.deg)
@@ -58,11 +69,11 @@ def plot_sky(
         sky_axis.scatter(
             azimuth,
             radius,
-            s=70,
+            s=70 if is_selected else 30,
             color=color,
             edgecolor="white",
             linewidth=0.7,
-            zorder=3,
+            zorder=6 if is_selected else 3,
         )
         sky_axis.annotate(
             target.name,
@@ -70,11 +81,21 @@ def plot_sky(
             xytext=(7, 5),
             textcoords="offset points",
             color=color,
-            fontsize=14,
+            fontsize=14 if is_selected else 12,
             ha="left",
             va="bottom",
             annotation_clip=False,
-            zorder=4,
+            fontweight="bold" if is_selected else "normal",
+            zorder=7 if is_selected else 4,
+            bbox=(
+                dict(
+                    boxstyle="round,pad=0.3",
+                    facecolor=(1.0, 1.0, 1.0, 0.5),
+                    edgecolor="red",
+                )
+                if is_selected
+                else None
+            ),
         )
 
     if show_moon:
@@ -249,8 +270,13 @@ def plot_visibility(
     show_moon: bool = True,
     current_time: Time | None = None,
     show_legend: bool = True,
+    target_index: int = 0,
 ) -> plt.Figure:
-    """Plot one visibility curve with equivalent airmass and altitude scales."""
+    """Plot one visibility curve with equivalent airmass and altitude scales.
+
+    ``target_index`` identifies the target in the curve group ids so several
+    separate panels can be told apart by the interactive legend.
+    """
     elapsed_hours = np.asarray(
         (result.times - result.times[0]).to_value(u.hour), dtype=float
     )
@@ -296,7 +322,7 @@ def plot_visibility(
         label=result.target.name,
         zorder=5,
     )[0]
-    visibility_line.set_gid("obs-target-0-solid")
+    visibility_line.set_gid(f"obs-target-{target_index}-solid")
     moon_limited_line = airmass_axis.plot(
         elapsed_hours,
         target_close_to_moon,
@@ -310,7 +336,7 @@ def plot_visibility(
         ),
         zorder=5,
     )[0]
-    moon_limited_line.set_gid("obs-target-0-dashed")
+    moon_limited_line.set_gid(f"obs-target-{target_index}-dashed")
     moon_line = None
     if show_moon:
         moon_line = airmass_axis.plot(

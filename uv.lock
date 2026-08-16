@@ -90,11 +90,11 @@ wheels = [
 
 [[package]]
 name = "astropy-iers-data"
-version = "0.2026.7.27.0.56.29"
+version = "0.2026.8.10.0.32.39"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ef/78/5d39f2a7a6035e3ab3bf2ded23d7bd7ab663f102a0dbeff34b876acc573f/astropy_iers_data-0.2026.7.27.0.56.29.tar.gz", hash = "sha256:71112cc71082d9be0573135c6ac3b76d149f0b8cc10366f70fa230776c69f2a3", size = 1942165, upload-time = "2026-07-27T00:57:16.059Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/36/f81b3202279d00e8c7f8f1e9506cfb2ad2b590cb1377caf50888f375fe85/astropy_iers_data-0.2026.8.10.0.32.39.tar.gz", hash = "sha256:2e5b9904f69ca69c7013170b2622b8818d443e10fdd5d501e1c2d298dd1e06dc", size = 1943087, upload-time = "2026-08-10T00:33:36.252Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7b/02/df236615164fbd2fd29b04b5c44ff24949272612ccc84347071a074e0ce0/astropy_iers_data-0.2026.7.27.0.56.29-py3-none-any.whl", hash = "sha256:8106cce07e38e3e0422f755b8964e6d03ca4d4280bb134934c74d497711f8d2a", size = 1997535, upload-time = "2026-07-27T00:57:14.06Z" },
+    { url = "https://files.pythonhosted.org/packages/84/27/0775134a2a939ddf7a073e77e66110b671e99cefbc36fb57b57851fd109a/astropy_iers_data-0.2026.8.10.0.32.39-py3-none-any.whl", hash = "sha256:04239afd6e9615165b84da1b84d73f03ca473f0ddf53b516c260e27349a95d03", size = 1998788, upload-time = "2026-08-10T00:33:34.729Z" },
 ]
 
 [[package]]
@@ -1204,7 +1204,7 @@ wheels = [
 
 [[package]]
 name = "obsplanner"
-version = "0.1.4"
+version = "0.1.5"
 source = { editable = "." }
 dependencies = [
     { name = "astroplan" },

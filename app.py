@@ -4,6 +4,7 @@ import base64
 import html
 import io
 import json
+import re
 import sys
 from datetime import datetime, time
 from pathlib import Path
@@ -144,6 +145,37 @@ def observatory_catalog():
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_resolve_target(name: str):
     return resolve_target(name)
+
+
+def _target_cache_key(target: Target):
+    icrs = target.coord.icrs
+    return (target.name, icrs.ra.deg, icrs.dec.deg)
+
+
+@st.cache_data(
+    show_spinner=False, hash_funcs={Target: _target_cache_key}
+)
+def cached_visibility(
+    target: Target,
+    observatory_key: str,
+    observing_date,
+    maximum_airmass: float,
+    minimum_moon_separation: float,
+    show_daytime: bool,
+):
+    """Visibility depends only on these inputs, so reuse it across reruns."""
+    site = observatory_catalog()[observatory_key]
+    return calculate_visibility(
+        target,
+        site.to_observer(),
+        observing_date,
+        VisibilityConstraints(
+            minimum_altitude=0.0,
+            maximum_airmass=maximum_airmass,
+            minimum_moon_separation=minimum_moon_separation,
+        ),
+        show_daytime=show_daytime,
+    )
 
 
 def add_targets(new_targets: list[Target]) -> tuple[int, list[str]]:
@@ -509,12 +541,13 @@ constraints = VisibilityConstraints(
 try:
     with st.spinner("Calculating target visibility…"):
         results = [
-            calculate_visibility(
+            cached_visibility(
                 target,
-                observer,
+                selected_key,
                 observing_date,
-                constraints,
-                show_daytime=show_daytime,
+                float(maximum_airmass),
+                float(minimum_moon_separation),
+                show_daytime,
             )
             for target in st.session_state.targets
         ]
@@ -530,6 +563,18 @@ except Exception as exc:
         st.exception(exc)
     st.stop()
 
+# The visibility plot reports its selected target through the obs-selected
+# query parameter (set by the plot's JavaScript). Resolve it back to a target
+# name so the sky plot can emphasize the same target.
+selected_target_name = None
+selected_param = st.query_params.get("obs-selected")
+if selected_param:
+    selection_match = re.fullmatch(r"obs-target-(\d+)", selected_param)
+    if selection_match:
+        selected_index = int(selection_match.group(1))
+        if selected_index < len(results):
+            selected_target_name = results[selected_index].target.name
+
 # Timed fragments rerun independently of the full app. Keep their complete
 # plotting context in session state so an observatory change cannot leave a
 # fragment using objects captured during an earlier full render.
@@ -542,6 +587,7 @@ st.session_state.active_plot_context = {
     "plot_mode": plot_mode,
     "target_colors": dict(st.session_state.target_colors),
     "show_moon": show_moon,
+    "selected_target": selected_target_name,
 }
 
 if sky_column is not None:
@@ -557,6 +603,7 @@ if sky_column is not None:
                     Time.now(),
                     colors=context["target_colors"],
                     show_moon=context["show_moon"],
+                    selected=context["selected_target"],
                 )
                 st.pyplot(sky_figure, width="stretch")
                 plt.close(sky_figure)
@@ -576,6 +623,7 @@ if sky_column is not None:
                 selected_sky_time,
                 colors=st.session_state.target_colors,
                 show_moon=show_moon,
+                selected=selected_target_name,
             )
             st.pyplot(sky_figure, width="stretch")
             plt.close(sky_figure)
@@ -678,6 +726,23 @@ def render_visibility_figure(figure: plt.Figure) -> None:
         </div>
         <script>
             const storageKey = {storage_key_json};
+            const syncSelectionParam = (target) => {{
+                try {{
+                    const parentLocation = window.parent.location;
+                    const params = new URLSearchParams(parentLocation.search);
+                    if (target) {{
+                        if (params.get("obs-selected") === target) return;
+                        params.set("obs-selected", target);
+                    }} else {{
+                        if (!params.has("obs-selected")) return;
+                        params.delete("obs-selected");
+                    }}
+                    window.parent.history.replaceState(
+                        null, "",
+                        parentLocation.pathname + "?" + params.toString()
+                    );
+                }} catch (error) {{ /* Sky-plot sync is best-effort. */ }}
+            }};
             const targetGroups = Array.from(
                 document.querySelectorAll('[id^="obs-target-"]')
             );
@@ -701,7 +766,8 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 const selectedLegend = document.querySelector(
                     `.legend-item[data-target="${{target}}"]`
                 );
-                const turnOff = selectedLegend?.classList.contains("selected");
+                if (!selectedLegend) return;
+                const turnOff = selectedLegend.classList.contains("selected");
                 restoreDrawingOrder();
                 document.querySelectorAll(".selected").forEach(
                     element => element.classList.remove("selected")
@@ -709,15 +775,17 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 if (turnOff) {{
                     try {{ window.parent.sessionStorage.removeItem(storageKey); }}
                     catch (error) {{ /* Selection still works without persistence. */ }}
+                    syncSelectionParam(null);
                     return;
                 }}
-                selectedLegend?.classList.add("selected");
+                selectedLegend.classList.add("selected");
                 document.querySelectorAll(`[id^="${{target}}-"]`).forEach(group => {{
                     group.classList.add("selected");
                     group.parentElement.appendChild(group);
                 }});
                 try {{ window.parent.sessionStorage.setItem(storageKey, target); }}
                 catch (error) {{ /* Selection still works without persistence. */ }}
+                syncSelectionParam(target);
             }};
 
             document.querySelectorAll(".legend-item[data-target]").forEach(item => {{
@@ -763,7 +831,7 @@ def render_visibility_plots():
         render_visibility_figure(visibility_figure)
         plt.close(visibility_figure)
     else:
-        for result in plot_results:
+        for panel_index, result in enumerate(plot_results):
             visibility_figure = plot_visibility(
                 result,
                 plot_constraints,
@@ -774,11 +842,31 @@ def render_visibility_plots():
                 show_moon=context["show_moon"],
                 current_time=current_time,
                 show_legend=False,
+                target_index=panel_index,
             )
             render_visibility_figure(visibility_figure)
             plt.close(visibility_figure)
 
 
+@st.fragment(run_every="1s")
+def sync_target_selection():
+    """Rerun the app when the visibility plot selection changes.
+
+    The visibility plot writes its selected target to the obs-selected query
+    parameter from the browser. Streamlit only notices that change on a
+    script run, so this lightweight periodic fragment detects it and asks
+    for a full rerun, which lets the sky plot emphasize the same target.
+    """
+    current_selection = st.query_params.get("obs-selected")
+    if current_selection != st.session_state.get("obs_selected_target"):
+        if current_selection is None:
+            st.session_state.pop("obs_selected_target", None)
+        else:
+            st.session_state.obs_selected_target = current_selection
+        st.rerun(scope="app")
+
+
+sync_target_selection()
 render_visibility_plots()
 
 st.markdown(
