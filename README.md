@@ -27,8 +27,8 @@ run it.
 
 - SIMBAD target-name resolution
 - Sexagesimal or decimal manual coordinates
-- Persistent target list with individual entry, CSV import, and removal
-- Combined multi-target plot with an individual color picker for every target
+- Persistent target list with individual entry, CSV import, tags, and removal
+- Combined multi-target plot with per-target colors and tag-based color grouping
 - Time-selectable local sky plot with color-matched markers and labels for every target
 - Separate-panel mode using the full single-target presentation
 - Fifteen built-in observatory locations with local time-zone support
@@ -98,19 +98,26 @@ degrees. Decimal mode interprets both fields as degrees.
 
 ### CSV target catalogs
 
-Upload a CSV containing the required `name`, `ra`, and `dec` columns:
+Upload a CSV containing the required `name`, `ra`, and `dec` columns. Optional
+`tag`, `exptime`, and `note` columns add observing metadata during import:
 
 ```csv
-name,ra,dec
-NGC 3783,11:39:01,-37:44:20
-PDS 456,262.0825,-14.9322
+name,ra,dec,tag,exptime,note
+NGC 3783,11:39:01,-37:44:20,AGN,2 x 600s,Primary target
+PDS 456,262.0825,-14.9322,AGN,1200s,Backup
 ```
 
 RA values containing colons or hour-angle letters are interpreted as
 sexagesimal hours. Numeric RA values are interpreted as decimal degrees.
 Target names must be unique.
 
-In **Combined panel** mode, each target has its own sidebar color picker. In
+Hover over a target name in the sidebar to see its tag. Target names are shown
+in their plot color. Click the menu button beside **Current targets** to open
+the full-page target settings, where names, coordinates, tags, exposure times,
+notes, and colors can be edited. Tagged targets share one color automatically;
+untagged targets retain independent colors. The **Display** section can hide
+selected tag groups from the calculations and plots without removing their
+targets; all groups are shown by default. In
 **Separate panels** mode, every target is rendered with the complete
 single-target chart.
 

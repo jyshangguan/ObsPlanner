@@ -524,18 +524,25 @@ def test_sky_plot_selection_is_bold_and_drawn_on_top():
     selected_label = sky_axis.texts[-1]
     other_label = sky_axis.texts[0]
     assert selected_label.get_fontweight() == "bold"
+    assert selected_label.get_color() == "#ffea00"
     assert other_label.get_fontweight() == "normal"
+    assert other_label.get_color() == "#abcdef"
     assert selected_label.get_fontsize() == 14
     assert other_label.get_fontsize() == 12
     label_frame = selected_label.get_bbox_patch()
     assert label_frame is not None
-    assert label_frame.get_facecolor() == (1.0, 1.0, 1.0, 0.5)
-    assert label_frame.get_edgecolor()[:3] == (1.0, 0.0, 0.0)
+    assert label_frame.get_facecolor() == (0.1, 0.1, 0.1, 0.75)
+    assert label_frame.get_edgecolor()[:3] == pytest.approx(
+        (1.0, 234 / 255, 0.0)
+    )
     assert other_label.get_bbox_patch() is None
     assert selected_label.get_zorder() > other_label.get_zorder()
     selected_marker = sky_axis.collections[-1]
     other_marker = sky_axis.collections[0]
     assert list(selected_marker.get_sizes()) == [70]
+    assert selected_marker.get_facecolors()[0][:3] == pytest.approx(
+        (1.0, 234 / 255, 0.0)
+    )
     assert list(other_marker.get_sizes()) == [30]
     assert selected_marker.get_zorder() > other_marker.get_zorder()
     assert selected_marker.get_zorder() > 4  # above the Moon's label zorder

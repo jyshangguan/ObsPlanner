@@ -9,3 +9,6 @@ class Target:
 
     name: str
     coord: SkyCoord
+    tag: str = ""
+    exptime: str = ""
+    note: str = ""

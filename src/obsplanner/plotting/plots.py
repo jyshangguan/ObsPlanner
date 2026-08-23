@@ -11,6 +11,9 @@ from matplotlib.ticker import FuncFormatter, MultipleLocator
 from astropy.time import Time
 
 from obsplanner.targets import Target
+
+
+SELECTED_TARGET_COLOR = "#ffea00"
 from obsplanner.visibility import VisibilityConstraints, VisibilityResult
 
 TIME_AXES = ("Local time", "UTC", "LST")
@@ -29,7 +32,8 @@ def plot_sky(
 
     When ``selected`` names one of the targets, that target is drawn on top
     of every other marker with an enlarged bold label framed by a
-    semi-transparent white box with a red boundary.
+    dark framed label. Its marker and label use the same bright yellow as the
+    selected observability curve, regardless of its assigned target color.
     """
     if not targets:
         raise ValueError("At least one target is required.")
@@ -65,14 +69,18 @@ def plot_sky(
         # Lambert azimuthal equal-area radius. The horizon is r=1; the shaded
         # outer annulus contains targets currently below the horizon.
         radius = np.sqrt(2.0) * np.sin(np.radians(90.0 - altitude) / 2.0)
-        color = colors.get(target.name, "#ff4b4b")
+        color = (
+            SELECTED_TARGET_COLOR
+            if is_selected
+            else colors.get(target.name, "#ff4b4b")
+        )
         sky_axis.scatter(
             azimuth,
             radius,
             s=70 if is_selected else 30,
             color=color,
-            edgecolor="white",
-            linewidth=0.7,
+            edgecolor="#333333" if is_selected else "white",
+            linewidth=1.2 if is_selected else 0.7,
             zorder=6 if is_selected else 3,
         )
         sky_axis.annotate(
@@ -90,8 +98,8 @@ def plot_sky(
             bbox=(
                 dict(
                     boxstyle="round,pad=0.3",
-                    facecolor=(1.0, 1.0, 1.0, 0.5),
-                    edgecolor="red",
+                    facecolor=(0.1, 0.1, 0.1, 0.75),
+                    edgecolor=SELECTED_TARGET_COLOR,
                 )
                 if is_selected
                 else None

@@ -11,6 +11,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import streamlit as st
 from astropy.time import Time
 from matplotlib.lines import Line2D
@@ -120,6 +121,35 @@ st.markdown(
             font-weight: 700;
             line-height: 1;
         }
+        .target-name {
+            cursor: help;
+            overflow: visible;
+            padding: 0.35rem 0;
+            position: relative;
+        }
+        .target-name .target-tag-tooltip {
+            background: var(--secondary-background-color);
+            border: 1px solid rgba(128, 128, 128, 0.35);
+            border-radius: 0.35rem;
+            box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.15);
+            display: none;
+            font-size: 0.8rem;
+            left: 0;
+            padding: 0.2rem 0.45rem;
+            position: absolute;
+            top: 90%;
+            line-height: 1.35;
+            max-width: 18rem;
+            min-width: 9rem;
+            white-space: normal;
+            z-index: 10;
+        }
+        .target-tag-tooltip div + div {
+            margin-top: 0.15rem;
+        }
+        .target-name:hover .target-tag-tooltip {
+            display: block;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -188,9 +218,23 @@ def add_targets(new_targets: list[Target]) -> tuple[int, list[str]]:
             continue
         st.session_state.targets.append(target)
         index = len(st.session_state.targets) - 1
-        st.session_state.target_colors.setdefault(
-            target.name, DEFAULT_COLORS[index % len(DEFAULT_COLORS)]
+        matching_color = next(
+            (
+                st.session_state.target_colors.get(existing_target.name)
+                for existing_target in st.session_state.targets[:-1]
+                if target.tag
+                and st.session_state.target_tags.get(
+                    existing_target.name, existing_target.tag
+                ).strip()
+                == target.tag.strip()
+            ),
+            None,
         )
+        st.session_state.target_colors.setdefault(
+            target.name,
+            matching_color or DEFAULT_COLORS[index % len(DEFAULT_COLORS)],
+        )
+        st.session_state.target_tags.setdefault(target.name, target.tag)
         existing.add(target.name.casefold())
         added += 1
     return added, skipped
@@ -205,6 +249,214 @@ if "targets" not in st.session_state:
     st.session_state.targets = []
 if "target_colors" not in st.session_state:
     st.session_state.target_colors = {}
+if "target_tags" not in st.session_state:
+    st.session_state.target_tags = {}
+if "content_page" not in st.session_state:
+    st.session_state.content_page = "planner"
+if "hidden_tags" not in st.session_state:
+    st.session_state.hidden_tags = set()
+if "tag_color_groups_initialized" not in st.session_state:
+    initial_tag_colors: dict[str, str] = {}
+    for target in st.session_state.targets:
+        initial_tag = st.session_state.target_tags.get(target.name, target.tag).strip()
+        if initial_tag:
+            st.session_state.target_colors[target.name] = initial_tag_colors.setdefault(
+                initial_tag,
+                st.session_state.target_colors.get(target.name, DEFAULT_COLORS[0]),
+            )
+    st.session_state.tag_color_groups_initialized = True
+
+
+def apply_color_to_tag(target_name: str) -> None:
+    """Apply a changed color to every target sharing a non-empty tag."""
+    color = st.session_state[f"target_color_{target_name}"]
+    st.session_state.target_colors[target_name] = color
+    tag = st.session_state.target_tags.get(target_name, "").strip()
+    if not tag:
+        return
+    for target in st.session_state.targets:
+        if st.session_state.target_tags.get(target.name, "").strip() == tag:
+            st.session_state.target_colors[target.name] = color
+            st.session_state[f"target_color_{target.name}"] = color
+
+
+def show_target_table() -> None:
+    """Switch the main content area to the target-information table."""
+    st.session_state.pop("target_information_editor", None)
+    st.session_state.content_page = "targets"
+
+
+def show_planner() -> None:
+    """Return the main content area to the visibility planner."""
+    st.session_state.content_page = "planner"
+
+
+def render_target_table_page() -> None:
+    """Render and apply the full-page target-information editor."""
+    title_column, back_column = st.columns([5, 1], vertical_alignment="center")
+    title_column.title("Current targets")
+    with back_column:
+        st.button("Back to planner", width="stretch", on_click=show_planner)
+
+    st.caption("Edit target information, then apply the changes.")
+    target_rows = [
+        {
+            "name": target.name,
+            "ra": target.coord.icrs.ra.deg,
+            "dec": target.coord.icrs.dec.deg,
+            "tag": st.session_state.target_tags.get(target.name, target.tag),
+            "exptime": target.exptime,
+            "note": target.note,
+        }
+        for target in st.session_state.targets
+    ]
+    edited_targets = st.data_editor(
+        pd.DataFrame(
+            target_rows,
+            columns=("name", "ra", "dec", "tag", "exptime", "note"),
+        ),
+        hide_index=True,
+        width="stretch",
+        num_rows="fixed",
+        key="target_information_editor",
+        column_config={
+            "name": st.column_config.TextColumn("Name", required=True),
+            "ra": st.column_config.NumberColumn(
+                "RA (deg)", required=True, format="%.6f"
+            ),
+            "dec": st.column_config.NumberColumn(
+                "Dec (deg)", required=True, format="%.6f"
+            ),
+            "tag": st.column_config.TextColumn("Tag"),
+            "exptime": st.column_config.TextColumn("Exptime"),
+            "note": st.column_config.TextColumn("Note", width="large"),
+        },
+    )
+
+    st.subheader("Display")
+    available_tags = list(
+        dict.fromkeys(
+            st.session_state.target_tags.get(target.name, target.tag).strip()
+            for target in st.session_state.targets
+            if st.session_state.target_tags.get(target.name, target.tag).strip()
+        )
+    )
+    if available_tags:
+        st.caption("Choose which tagged groups are included in the plots.")
+        display_columns = st.columns(min(4, len(available_tags)))
+        hidden_tags = set(st.session_state.hidden_tags)
+        for tag_index, tag in enumerate(available_tags):
+            with display_columns[tag_index % len(display_columns)]:
+                show_tag = st.toggle(
+                    f"Show {tag}",
+                    value=tag not in hidden_tags,
+                    key=f"display_tag_{tag_index}_{tag}",
+                )
+            if show_tag:
+                hidden_tags.discard(tag)
+            else:
+                hidden_tags.add(tag)
+        st.session_state.hidden_tags = hidden_tags
+    else:
+        st.caption("Add tags to targets to control groups here.")
+
+    st.subheader("Colors")
+    st.caption("One color is used for each tag; untagged targets are independent.")
+    color_groups: dict[tuple[str, str], Target] = {}
+    for target in st.session_state.targets:
+        tag = st.session_state.target_tags.get(target.name, target.tag).strip()
+        group_key = ("tag", tag) if tag else ("target", target.name)
+        color_groups.setdefault(group_key, target)
+    color_columns = st.columns(min(4, max(1, len(color_groups))))
+    for group_index, ((group_type, group_name), target) in enumerate(
+        color_groups.items()
+    ):
+        label = f"Tag: {group_name}" if group_type == "tag" else target.name
+        with color_columns[group_index % len(color_columns)]:
+            st.color_picker(
+                label,
+                value=st.session_state.target_colors.get(
+                    target.name,
+                    DEFAULT_COLORS[group_index % len(DEFAULT_COLORS)],
+                ),
+                key=f"target_color_{target.name}",
+                on_change=apply_color_to_tag,
+                args=(target.name,),
+            )
+    if st.button(
+        "Apply target changes",
+        type="primary",
+        disabled=not st.session_state.targets,
+    ):
+        try:
+            revised_targets: list[Target] = []
+            revised_names: set[str] = set()
+            revised_colors: dict[str, str] = {}
+            revised_tags: dict[str, str] = {}
+            for index, row in edited_targets.iterrows():
+                old_target = st.session_state.targets[int(index)]
+                revised_name = str(row["name"]).strip()
+                if not revised_name:
+                    raise TargetResolutionError(
+                        f"Target row {int(index) + 1} has no name."
+                    )
+                if revised_name.casefold() in revised_names:
+                    raise TargetResolutionError(
+                        f"Target name “{revised_name}” is repeated."
+                    )
+                revised = parse_manual_coordinates(
+                    str(row["ra"]),
+                    str(row["dec"]),
+                    revised_name,
+                    decimal_degrees=True,
+                )
+                revised_tag = (
+                    "" if pd.isna(row["tag"]) else str(row["tag"]).strip()
+                )
+                revised_exptime = (
+                    ""
+                    if pd.isna(row["exptime"])
+                    else str(row["exptime"]).strip()
+                )
+                revised_note = (
+                    "" if pd.isna(row["note"]) else str(row["note"]).strip()
+                )
+                revised_targets.append(
+                    Target(
+                        revised.name,
+                        revised.coord,
+                        revised_tag,
+                        revised_exptime,
+                        revised_note,
+                    )
+                )
+                revised_names.add(revised_name.casefold())
+                revised_colors[revised_name] = st.session_state.target_colors.get(
+                    old_target.name, DEFAULT_COLORS[int(index) % len(DEFAULT_COLORS)]
+                )
+                revised_tags[revised_name] = revised_tag
+
+            colors_by_tag: dict[str, str] = {}
+            for revised_target in revised_targets:
+                revised_tag = revised_tags[revised_target.name]
+                if revised_tag:
+                    revised_colors[revised_target.name] = colors_by_tag.setdefault(
+                        revised_tag, revised_colors[revised_target.name]
+                    )
+
+            old_names = [target.name for target in st.session_state.targets]
+            st.session_state.targets = revised_targets
+            st.session_state.target_colors = revised_colors
+            st.session_state.target_tags = revised_tags
+            st.session_state.hidden_tags = set(st.session_state.hidden_tags) & set(
+                revised_tags.values()
+            )
+            for old_name in old_names:
+                st.session_state.pop(f"target_color_{old_name}", None)
+            st.session_state.pop("target_information_editor", None)
+            st.rerun()
+        except (TargetResolutionError, TypeError, ValueError) as exc:
+            st.error(str(exc))
 
 try:
     catalog = observatory_catalog()
@@ -278,11 +530,14 @@ with st.sidebar:
             "Target CSV",
             type=("csv",),
             help=(
-                "Required columns: name, ra, dec. Sexagesimal RA uses hours; "
-                "numeric RA uses decimal degrees."
+                "Required columns: name, ra, dec. Optional columns: tag, "
+                "exptime, note. "
+                "Sexagesimal RA uses hours; numeric RA uses decimal degrees."
             ),
         )
-        st.caption("Required columns: `name`, `ra`, `dec`")
+        st.caption(
+            "Required: `name`, `ra`, `dec` · Optional: `tag`, `exptime`, `note`"
+        )
         if st.button(
             "Import targets",
             disabled=uploaded_catalog is None,
@@ -305,33 +560,41 @@ with st.sidebar:
             except TargetResolutionError as exc:
                 st.error(str(exc))
 
-    current_plot_mode = (
-        "Separate panels"
-        if st.session_state.get("separate_panels", False)
-        else "Combined panel"
+    target_heading, edit_targets_column = st.columns(
+        [4, 1], vertical_alignment="center"
     )
-    st.header(f"Current targets ({len(st.session_state.targets)})")
+    target_heading.header(f"Current targets ({len(st.session_state.targets)})")
+    with edit_targets_column:
+        st.button(
+            "☰",
+            help="Edit names, coordinates, and tags in the main panel",
+            width="stretch",
+            on_click=show_target_table,
+        )
+
     target_list = st.container(height=300, border=False)
     with target_list:
         for index, listed_target in enumerate(list(st.session_state.targets)):
-            if current_plot_mode == "Combined panel":
-                name_column, color_column, remove_column = st.columns([3.5, 1.2, 1])
-                current_color = st.session_state.target_colors.setdefault(
-                    listed_target.name,
-                    DEFAULT_COLORS[index % len(DEFAULT_COLORS)],
-                )
-                with color_column:
-                    st.session_state.target_colors[listed_target.name] = (
-                        st.color_picker(
-                            f"{listed_target.name} color",
-                            value=current_color,
-                            key=f"target_color_{listed_target.name}",
-                            label_visibility="collapsed",
-                        )
-                    )
-            else:
-                name_column, remove_column = st.columns([4, 1])
-            name_column.write(listed_target.name)
+            name_column, remove_column = st.columns([4, 1])
+            tag = st.session_state.target_tags.setdefault(
+                listed_target.name, listed_target.tag
+            )
+            target_color = st.session_state.target_colors.setdefault(
+                listed_target.name, DEFAULT_COLORS[index % len(DEFAULT_COLORS)]
+            )
+            name_column.markdown(
+                '<div class="target-name" '
+                f'style="color: {html.escape(target_color, quote=True)}">'
+                f"{html.escape(listed_target.name)}"
+                '<span class="target-tag-tooltip">'
+                f"<div><strong>Tag:</strong> {html.escape(tag or 'None')}</div>"
+                "<div><strong>Exptime:</strong> "
+                f"{html.escape(listed_target.exptime or 'None')}</div>"
+                "<div><strong>Note:</strong> "
+                f"{html.escape(listed_target.note or 'None')}</div>"
+                "</span></div>",
+                unsafe_allow_html=True,
+            )
             if remove_column.button(
                 "✕",
                 key=f"remove_target_{index}_{listed_target.name}",
@@ -339,12 +602,15 @@ with st.sidebar:
             ):
                 st.session_state.targets.pop(index)
                 st.session_state.target_colors.pop(listed_target.name, None)
+                st.session_state.target_tags.pop(listed_target.name, None)
                 st.rerun()
     if st.session_state.targets and st.button(
         "Clear target list", width="stretch"
     ):
         st.session_state.targets = []
         st.session_state.target_colors = {}
+        st.session_state.target_tags = {}
+        st.session_state.hidden_tags = set()
         st.rerun()
 
     with st.popover("Settings", width="stretch"):
@@ -393,6 +659,18 @@ with st.sidebar:
         minimum_moon_separation = st.slider(
             "Minimum Moon separation (degrees)", 0, 180, 30, 5
         )
+
+if st.session_state.content_page == "targets":
+    render_target_table_page()
+    st.stop()
+
+display_targets = [
+    target
+    for target in st.session_state.targets
+    if not st.session_state.target_tags.get(target.name, target.tag).strip()
+    or st.session_state.target_tags.get(target.name, target.tag).strip()
+    not in st.session_state.hidden_tags
+]
 
 if "import_notice" in st.session_state:
     import_notice = html.escape(st.session_state.pop("import_notice"))
@@ -532,6 +810,9 @@ if not use_current_sky_time and sky_clock_time is None:
 if not st.session_state.targets:
     st.info("Add at least one target in the sidebar to create a visibility plot.")
     st.stop()
+if not display_targets:
+    st.info("All tagged target groups are hidden. Enable a group in target settings.")
+    st.stop()
 
 constraints = VisibilityConstraints(
     minimum_altitude=0.0,
@@ -549,7 +830,7 @@ try:
                 float(minimum_moon_separation),
                 show_daytime,
             )
-            for target in st.session_state.targets
+            for target in display_targets
         ]
 except ValueError as exc:
     st.error(str(exc))
@@ -618,7 +899,7 @@ if sky_column is not None:
                 )
             )
             sky_figure = plot_sky(
-                st.session_state.targets,
+                display_targets,
                 observer,
                 selected_sky_time,
                 colors=st.session_state.target_colors,
@@ -707,11 +988,17 @@ def render_visibility_figure(figure: plt.Figure) -> None:
             .legend-item[data-target] {{ cursor: pointer; }}
             .legend-swatch {{ flex: 0 0 2.2rem; height: 0; }}
             .legend-label {{ line-height: 1.25; overflow-wrap: anywhere; }}
-            .legend-item.selected .legend-swatch {{ border-top-width: 2px !important; }}
+            .legend-item.selected .legend-swatch {{
+                border-top-color: #ffea00 !important;
+                border-top-width: 4px !important;
+                filter: drop-shadow(0 0 1px #333);
+            }}
             .legend-item.selected .legend-label {{ font-weight: 700; }}
             [id^="obs-target-"] path {{ cursor: pointer; pointer-events: stroke; }}
             [id^="obs-target-"].selected path:not(.curve-hit) {{
-                stroke-width: 2 !important;
+                filter: drop-shadow(0 0 1px #333);
+                stroke: #ffea00 !important;
+                stroke-width: 4 !important;
             }}
             .curve-hit {{
                 fill: none !important;

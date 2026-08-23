@@ -17,7 +17,7 @@ def _uses_sexagesimal_ra(value: str) -> bool:
 def parse_target_csv(
     source: str | bytes | IO[str] | IO[bytes],
 ) -> list[Target]:
-    """Parse a CSV catalog with case-insensitive name, RA, and Dec columns.
+    """Parse a CSV catalog with optional tag, exptime, and note columns.
 
     Numeric RA is interpreted as decimal degrees. RA containing a colon or
     hour-angle letters is interpreted as sexagesimal hours.
@@ -74,6 +74,16 @@ def parse_target_csv(
             raise TargetResolutionError(
                 f"CSV row {row_number} ({name}): {exc}"
             ) from exc
-        targets.append(target)
+        optional_values: dict[str, str] = {}
+        for column in ("tag", "exptime", "note"):
+            value = ""
+            if column in table.columns:
+                raw_value = str(row[column]).strip()
+                if raw_value and raw_value.lower() != "nan":
+                    value = raw_value
+            optional_values[column] = value
+        targets.append(
+            Target(name=target.name, coord=target.coord, **optional_values)
+        )
         seen_names.add(name.casefold())
     return targets

@@ -58,3 +58,73 @@ def test_fixed_sky_time_is_a_typed_hhmm_field_beside_editable_date():
     assert _element(app.text_input, "Time (HH:MM)").value == "21:37"
     assert not app.error
     assert not app.exception
+
+
+def test_targets_with_the_same_tag_share_color_changes():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    for name, coordinates in (("First", "10, +20"), ("Second", "11, +21")):
+        _element(app.text_input, "Target name").set_value(name)
+        _element(app.text_input, "Coordinates (RA, Dec)").set_value(coordinates)
+        _element(app.button, "Add target").click()
+        app.run(timeout=30)
+
+    app.session_state["target_tags"] = {
+        "First": "program A",
+        "Second": "program A",
+    }
+    app.run(timeout=30)
+    _element(app.button, "☰").click()
+    app.run(timeout=30)
+    _element(app.color_picker, "Tag: program A").set_value("#123456")
+    app.run(timeout=30)
+
+    colors = app.session_state.filtered_state["target_colors"]
+    assert colors["First"] == "#123456"
+    assert colors["Second"] == "#123456"
+    assert not app.exception
+
+
+def test_target_tags_are_tooltips_and_not_inline_inputs():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    _element(app.text_input, "Target name").set_value("Tagged")
+    _element(app.text_input, "Coordinates (RA, Dec)").set_value("10, +20")
+    _element(app.button, "Add target").click()
+    app.run(timeout=30)
+    app.session_state["target_tags"] = {"Tagged": "P1"}
+    app.run(timeout=30)
+
+    assert not any(item.label == "Tagged tag" for item in app.text_input)
+    tooltip = next(item.value for item in app.markdown if "<strong>Tag:" in item.value)
+    assert "P1" in tooltip
+    assert "<strong>Exptime:" in tooltip
+    assert "<strong>Note:" in tooltip
+    assert any("color: #ff4b4b" in item.value for item in app.markdown)
+    assert not app.color_picker
+    _element(app.button, "☰").click()
+    app.run(timeout=30)
+
+    assert any(item.value == "Current targets" for item in app.title)
+    assert _element(app.button, "Apply target changes")
+    assert _element(app.button, "Back to planner")
+
+
+def test_display_settings_can_hide_a_tag_group_from_plots():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    for name, coordinates in (("First", "10, +20"), ("Second", "11, +21")):
+        _element(app.text_input, "Target name").set_value(name)
+        _element(app.text_input, "Coordinates (RA, Dec)").set_value(coordinates)
+        _element(app.button, "Add target").click()
+        app.run(timeout=30)
+
+    app.session_state["target_tags"] = {"First": "P1", "Second": "P2"}
+    app.run(timeout=30)
+    _element(app.button, "☰").click()
+    app.run(timeout=30)
+    _element(app.toggle, "Show P2").set_value(False)
+    app.run(timeout=30)
+    _element(app.button, "Back to planner").click()
+    app.run(timeout=30)
+
+    results = app.session_state.filtered_state["active_plot_context"]["results"]
+    assert [result.target.name for result in results] == ["First"]
+    assert not app.exception

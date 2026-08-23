@@ -20,6 +20,21 @@ def test_target_csv_columns_are_case_insensitive():
     assert targets[0].name == "Test"
 
 
+def test_target_csv_imports_optional_fields_and_treats_blanks_as_empty():
+    targets = parse_target_csv(
+        "name,ra,dec,tag,exptime,note\n"
+        'First,10,+20,program A,2 x 600s,"First visit"\n'
+        "Second,11,+21,,,\n"
+    )
+
+    assert targets[0].tag == "program A"
+    assert targets[0].exptime == "2 x 600s"
+    assert targets[0].note == "First visit"
+    assert targets[1].tag == ""
+    assert targets[1].exptime == ""
+    assert targets[1].note == ""
+
+
 @pytest.mark.parametrize(
     "csv_text",
     [
