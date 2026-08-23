@@ -8,7 +8,7 @@ import re
 import sys
 from datetime import datetime, time
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, available_timezones
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -147,6 +147,53 @@ st.markdown(
         .target-tag-tooltip div + div {
             margin-top: 0.15rem;
         }
+        .observer-clock {
+            margin: 0;
+        }
+        .current-times-title {
+            color: var(--text-color);
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+        .st-key-current_times_panel {
+            transform: translateX(-2.6cm);
+        }
+        .observer-clock-time {
+            font-size: 1rem;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.5rem;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .observer-clock-name {
+            line-height: 1.5rem;
+            white-space: nowrap;
+        }
+        .st-key-current_times_panel [data-testid="stHorizontalBlock"] {
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.3rem;
+            min-height: 1.8rem;
+        }
+        .st-key-current_times_panel [data-testid="stColumn"] {
+            min-width: 0;
+        }
+        .st-key-current_times_panel [data-testid="stButton"] button {
+            justify-content: flex-start;
+            min-height: 1.8rem;
+            padding-bottom: 0;
+            padding-top: 0;
+        }
+        .st-key-add_remote_clock_control
+        [data-testid="stButton"] button[kind="tertiary"] {
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+        .st-key-current_times_panel:hover
+        .st-key-add_remote_clock_control
+        [data-testid="stButton"] button[kind="tertiary"] {
+            opacity: 1;
+        }
         .target-name:hover .target-tag-tooltip {
             display: block;
         }
@@ -165,6 +212,52 @@ DEFAULT_COLORS = (
     "#00b894",
     "#6c5ce7",
 )
+
+REMOTE_TIMEZONES = tuple(
+    sorted(
+        timezone_name
+        for timezone_name in available_timezones()
+        if timezone_name == "UTC"
+        or timezone_name.startswith(
+            (
+                "Africa/",
+                "America/",
+                "Antarctica/",
+                "Asia/",
+                "Atlantic/",
+                "Australia/",
+                "Europe/",
+                "Indian/",
+                "Pacific/",
+            )
+        )
+    )
+)
+
+
+@st.fragment(run_every="1s")
+def render_observer_clock(timezone_name: str) -> None:
+    """Render a live HH:MM:SS clock without rerunning visibility work."""
+    current_time = datetime.now(ZoneInfo(timezone_name)).strftime("%H:%M:%S")
+    st.markdown(
+        '<div class="observer-clock">'
+        f'<div class="observer-clock-time">{current_time}</div>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def add_remote_clock_slot() -> None:
+    """Reveal the next remote-observer time-zone selector."""
+    new_index = len(st.session_state.remote_clock_timezones)
+    if new_index < 3:
+        st.session_state.remote_clock_timezones.append(None)
+        st.session_state.remote_clock_editing.add(new_index)
+
+
+def edit_remote_clock_slot(index: int) -> None:
+    """Replace a remote clock's compact label with its search field."""
+    st.session_state.remote_clock_editing.add(index)
 
 
 @st.cache_data
@@ -253,6 +346,20 @@ if "target_tags" not in st.session_state:
     st.session_state.target_tags = {}
 if "content_page" not in st.session_state:
     st.session_state.content_page = "planner"
+if "remote_clock_timezones" not in st.session_state:
+    previous_slot_count = st.session_state.get("remote_clock_slots", 0)
+    st.session_state.remote_clock_timezones = [
+        st.session_state.get(f"remote_observer_timezone_{index}")
+        for index in range(previous_slot_count)
+    ]
+if "remote_clock_editing" not in st.session_state:
+    st.session_state.remote_clock_editing = {
+        index
+        for index, timezone_name in enumerate(
+            st.session_state.remote_clock_timezones
+        )
+        if not timezone_name
+    }
 if "hidden_tags" not in st.session_state:
     st.session_state.hidden_tags = set()
 if "tag_color_groups_initialized" not in st.session_state:
@@ -691,8 +798,8 @@ else:
     sky_column = None
 
 with controls_column:
-    site_column, twilight_column = st.columns(
-        [1.15, 2.0], vertical_alignment="top"
+    site_column, twilight_column, clock_column = st.columns(
+        [1.15, 1.2, 1.35], vertical_alignment="top"
     )
     with site_column:
         selected_key = st.selectbox(
@@ -749,6 +856,75 @@ with controls_column:
         )
     with twilight_column:
         twilight_placeholder = st.empty()
+    with clock_column.container(key="current_times_panel"):
+        st.markdown(
+            '<div class="current-times-title">Current times</div>',
+            unsafe_allow_html=True,
+        )
+        palomar_label, palomar_time = st.columns([1.05, 1])
+        palomar_label.markdown(
+            '<div class="observer-clock-name">Palomar</div>',
+            unsafe_allow_html=True,
+        )
+        with palomar_time:
+            render_observer_clock(catalog["palomar"].timezone)
+
+        for remote_index, saved_timezone in enumerate(
+            st.session_state.remote_clock_timezones
+        ):
+            remote_label, remote_time = st.columns([1.45, 1])
+            with remote_label:
+                if remote_index in st.session_state.remote_clock_editing:
+                    searched_timezone = st.selectbox(
+                        f"Remote observer {remote_index + 1} time zone",
+                        REMOTE_TIMEZONES,
+                        index=None,
+                        placeholder=(
+                            saved_timezone.replace("_", " ")
+                            if saved_timezone
+                            else "Search time zone"
+                        ),
+                        format_func=lambda timezone_name: timezone_name.replace(
+                            "_", " "
+                        ),
+                        label_visibility="collapsed",
+                        key=f"remote_timezone_search_{remote_index}",
+                    )
+                    if searched_timezone:
+                        st.session_state.remote_clock_timezones[
+                            remote_index
+                        ] = searched_timezone
+                        st.session_state.remote_clock_editing.discard(remote_index)
+                        st.rerun()
+                elif saved_timezone:
+                    st.button(
+                        saved_timezone.replace("_", " "),
+                        key=f"edit_remote_clock_{remote_index}",
+                        help="Change this remote observer time zone",
+                        type="tertiary",
+                        on_click=edit_remote_clock_slot,
+                        args=(remote_index,),
+                    )
+            if saved_timezone:
+                with remote_time:
+                    render_observer_clock(saved_timezone)
+
+        can_add_remote = (
+            not st.session_state.remote_clock_timezones
+            or bool(st.session_state.remote_clock_timezones[-1])
+        )
+        if len(st.session_state.remote_clock_timezones) < 3 and can_add_remote:
+            with st.container(key="add_remote_clock_control"):
+                st.button(
+                    "＋",
+                    key=(
+                        "add_remote_clock_"
+                        f"{len(st.session_state.remote_clock_timezones)}"
+                    ),
+                    help="Add a remote observer time",
+                    type="tertiary",
+                    on_click=add_remote_clock_slot,
+                )
 
 refresh_intervals = {
     "10 seconds": "10s",
@@ -790,8 +966,8 @@ try:
         '<div style="font-weight:600; margin-bottom:0.2rem;">Evening times</div>'
         f'<div>Sunset: {sunset_local.strftime("%H:%M")}</div>'
         f'<div>Civil twilight: {civil_twilight_local.strftime("%H:%M")}</div>'
-        f'<div>Nautical twilight: {nautical_twilight_local.strftime("%H:%M")}</div>'
-        f'<div>Astronomical twilight: {twilight_local.strftime("%H:%M")}</div>'
+        f'<div>Naut. twilight: {nautical_twilight_local.strftime("%H:%M")}</div>'
+        f'<div>Astro. twilight: {twilight_local.strftime("%H:%M")}</div>'
         f'<div style="font-size:0.8rem; opacity:0.7;">{site.timezone}</div>'
         "</div>"
     )

@@ -1,3 +1,5 @@
+import re
+
 from streamlit.testing.v1 import AppTest
 
 
@@ -41,8 +43,8 @@ def test_evening_box_lists_every_twilight_stage():
 
     assert "Sunset:" in evening_box
     assert "Civil twilight:" in evening_box
-    assert "Nautical twilight:" in evening_box
-    assert "Astronomical twilight:" in evening_box
+    assert "Naut. twilight:" in evening_box
+    assert "Astro. twilight:" in evening_box
 
 
 def test_fixed_sky_time_is_a_typed_hhmm_field_beside_editable_date():
@@ -57,6 +59,45 @@ def test_fixed_sky_time_is_a_typed_hhmm_field_beside_editable_date():
 
     assert _element(app.text_input, "Time (HH:MM)").value == "21:37"
     assert not app.error
+    assert not app.exception
+
+
+def test_live_palomar_and_remote_observer_clocks_are_available():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    assert any(
+        "Current times" in item.value for item in app.markdown
+    )
+    assert any(
+        re.search(r"\d{2}:\d{2}:\d{2}", item.value)
+        for item in app.markdown
+    )
+    assert any(
+        "observer-clock-name" in item.value and "Palomar" in item.value
+        for item in app.markdown
+    )
+
+    _element(app.button, "＋").click()
+    app.run(timeout=30)
+    first_remote = _element(app.selectbox, "Remote observer 1 time zone")
+    first_remote.set_value("Asia/Shanghai")
+    app.run(timeout=30)
+
+    assert _element(app.button, "Asia/Shanghai")
+    assert not any(
+        item.label == "Remote observer 1 time zone" for item in app.selectbox
+    )
+    _element(app.button, "＋").click()
+    app.run(timeout=30)
+    second_remote = _element(app.selectbox, "Remote observer 2 time zone")
+    second_remote.set_value("Europe/London")
+    app.run(timeout=30)
+
+    assert _element(app.button, "Europe/London")
+    _element(app.button, "Asia/Shanghai").click()
+    app.run(timeout=30)
+    assert _element(app.selectbox, "Remote observer 1 time zone").placeholder == (
+        "Asia/Shanghai"
+    )
     assert not app.exception
 
 

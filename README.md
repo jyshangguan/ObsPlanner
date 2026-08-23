@@ -32,6 +32,7 @@ run it.
 - Time-selectable local sky plot with color-matched markers and labels for every target
 - Separate-panel mode using the full single-target presentation
 - Fifteen built-in observatory locations with local time-zone support
+- Live Palomar clock plus up to three selectable remote-observer clocks
 - Adjustable maximum-airmass and Moon-separation constraints
 - Five-minute sampling of the astronomical night
 - Rise, transit, set, altitude, airmass, and observing-window summaries
