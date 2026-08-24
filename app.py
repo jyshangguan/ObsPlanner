@@ -163,6 +163,12 @@ st.markdown(
             box-sizing: border-box;
             padding: 0.65rem 0.8rem 0.75rem;
         }
+        .st-key-observatory_info_panel {
+            border: 1px solid #000000;
+            border-radius: 0.65rem;
+            box-sizing: border-box;
+            padding: 0.65rem 0.8rem 0.75rem;
+        }
         .observer-clock-time {
             font-size: 1rem;
             font-variant-numeric: tabular-nums;
@@ -311,6 +317,26 @@ def cached_visibility(
             minimum_moon_separation=minimum_moon_separation,
         ),
         show_daytime=show_daytime,
+    )
+
+
+@st.cache_data(show_spinner=False)
+def cached_empty_plot_reference(
+    observatory_key: str,
+    observing_date,
+    maximum_airmass: float,
+    minimum_moon_separation: float,
+    show_daytime: bool,
+):
+    """Calculate the shared night ephemeris used when no targets are shown."""
+    reference_target = parse_coordinate_pair("0, 0", "Sky reference")
+    return cached_visibility(
+        reference_target,
+        observatory_key,
+        observing_date,
+        maximum_airmass,
+        minimum_moon_separation,
+        show_daytime,
     )
 
 
@@ -814,71 +840,79 @@ else:
     sky_column = None
 
 with controls_column:
-    site_column, twilight_column, clock_column = st.columns(
-        [1.15, 1.2, 1.35], vertical_alignment="top"
+    observatory_area, clock_column = st.columns(
+        [2.35, 1.35], vertical_alignment="top"
     )
-    with site_column:
-        selected_key = st.selectbox(
-            "Observatory",
-            site_keys,
-            index=default_index,
-            format_func=lambda key: catalog[key].name,
-            key="selected_observatory",
-            on_change=remember_selected_observatory,
-        )
-        site = catalog[selected_key]
-        st.caption(
-            f"{site.latitude:.4f}°, {site.longitude:.4f}° · "
-            f"{site.elevation:.0f} m · {site.timezone}"
-        )
-        st.session_state.setdefault("use_current_time", True)
-        use_current_sky_time = bool(st.session_state.use_current_time)
-        date_column, fixed_time_column = st.columns([1.7, 1])
-        with date_column:
-            observatory_now = datetime.now(ZoneInfo(site.timezone))
-            current_observing_date = observing_date_for_local_time(
-                observatory_now
+    with observatory_area:
+        with st.container(key="observatory_info_panel"):
+            site_column, twilight_column = st.columns(
+                [1.15, 1.2], vertical_alignment="top"
             )
-            observing_date = st.date_input(
-                "Observing date",
-                value=current_observing_date,
-                key=(
-                    f"current_observing_date_{selected_key}_"
-                    f"{current_observing_date}"
-                    if use_current_sky_time
-                    else f"observing_date_{selected_key}"
-                ),
-                disabled=use_current_sky_time,
-                help=(
-                    f"Evening date of the observing night at {site.name} "
-                    f"({site.timezone})."
-                ),
-            )
-        sky_clock_time = None
-        if not use_current_sky_time:
-            with fixed_time_column:
-                sky_clock_text = st.text_input(
-                    "Time (HH:MM)",
-                    value="00:00",
-                    key=f"fixed_sky_time_{selected_key}",
-                    help=f"Local time at {site.name} ({site.timezone}).",
+            with site_column:
+                selected_key = st.selectbox(
+                    "Observatory",
+                    site_keys,
+                    index=default_index,
+                    format_func=lambda key: catalog[key].name,
+                    key="selected_observatory",
+                    on_change=remember_selected_observatory,
                 )
-                try:
-                    sky_clock_time = datetime.strptime(
-                        sky_clock_text.strip(), "%H:%M"
-                    ).time()
-                except ValueError:
-                    st.error("Enter time as HH:MM, for example 21:30.")
-        use_current_sky_time = st.toggle(
-            "Current time",
-            key="use_current_time",
-            help=(
-                "Use the current time and lock the observing date to the current "
-                "date at the selected observatory."
-            ),
-        )
-    with twilight_column:
-        twilight_placeholder = st.empty()
+                site = catalog[selected_key]
+                st.caption(
+                    f"{site.latitude:.4f}°, {site.longitude:.4f}° · "
+                    f"{site.elevation:.0f} m · {site.timezone}"
+                )
+            with twilight_column:
+                twilight_placeholder = st.empty()
+
+        lower_site_column, _ = st.columns([1.15, 1.2])
+        with lower_site_column:
+            st.session_state.setdefault("use_current_time", True)
+            use_current_sky_time = bool(st.session_state.use_current_time)
+            date_column, fixed_time_column = st.columns([1.7, 1])
+            with date_column:
+                observatory_now = datetime.now(ZoneInfo(site.timezone))
+                current_observing_date = observing_date_for_local_time(
+                    observatory_now
+                )
+                observing_date = st.date_input(
+                    "Observing date",
+                    value=current_observing_date,
+                    key=(
+                        f"current_observing_date_{selected_key}_"
+                        f"{current_observing_date}"
+                        if use_current_sky_time
+                        else f"observing_date_{selected_key}"
+                    ),
+                    disabled=use_current_sky_time,
+                    help=(
+                        f"Evening date of the observing night at {site.name} "
+                        f"({site.timezone})."
+                    ),
+                )
+            sky_clock_time = None
+            if not use_current_sky_time:
+                with fixed_time_column:
+                    sky_clock_text = st.text_input(
+                        "Time (HH:MM)",
+                        value="00:00",
+                        key=f"fixed_sky_time_{selected_key}",
+                        help=f"Local time at {site.name} ({site.timezone}).",
+                    )
+                    try:
+                        sky_clock_time = datetime.strptime(
+                            sky_clock_text.strip(), "%H:%M"
+                        ).time()
+                    except ValueError:
+                        st.error("Enter time as HH:MM, for example 21:30.")
+            use_current_sky_time = st.toggle(
+                "Current time",
+                key="use_current_time",
+                help=(
+                    "Use the current time and lock the observing date to the "
+                    "current date at the selected observatory."
+                ),
+            )
     with clock_column.container(key="current_times_panel"):
         st.markdown(
             '<div class="current-times-title">Current times</div>',
@@ -1014,13 +1048,6 @@ twilight_placeholder.markdown(evening_times_html, unsafe_allow_html=True)
 if not use_current_sky_time and sky_clock_time is None:
     st.stop()
 
-if not st.session_state.targets:
-    st.info("Add at least one target in the sidebar to create a visibility plot.")
-    st.stop()
-if not display_targets:
-    st.info("All tagged target groups are hidden. Enable a group in target settings.")
-    st.stop()
-
 constraints = VisibilityConstraints(
     minimum_altitude=0.0,
     maximum_airmass=float(maximum_airmass),
@@ -1039,6 +1066,17 @@ try:
             )
             for target in display_targets
         ]
+        reference_result = (
+            results[0]
+            if results
+            else cached_empty_plot_reference(
+                selected_key,
+                observing_date,
+                float(maximum_airmass),
+                float(minimum_moon_separation),
+                show_daytime,
+            )
+        )
 except ValueError as exc:
     st.error(str(exc))
     st.stop()
@@ -1070,6 +1108,7 @@ st.session_state.active_plot_context = {
     "observatory_key": selected_key,
     "observer": observer,
     "results": results,
+    "reference_result": reference_result,
     "constraints": constraints,
     "time_axis": time_axis,
     "plot_mode": plot_mode,
@@ -1404,15 +1443,16 @@ def render_visibility_plots():
     plot_constraints = context["constraints"]
     target_colors = context["target_colors"]
     current_time = Time.now()
-    if context["plot_mode"] == "Combined panel":
+    if context["plot_mode"] == "Combined panel" or not plot_results:
         visibility_figure = plot_combined_visibility(
-            plot_results,
+            plot_results or [context["reference_result"]],
             plot_constraints,
             context["time_axis"],
             colors=target_colors,
             show_moon=context["show_moon"],
             current_time=current_time,
             show_legend=False,
+            include_targets=bool(plot_results),
         )
         render_visibility_figure(visibility_figure)
         plt.close(visibility_figure)

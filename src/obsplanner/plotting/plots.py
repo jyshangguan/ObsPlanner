@@ -6,9 +6,9 @@ from zoneinfo import ZoneInfo
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
-from astropy.coordinates import AltAz, get_body
-from matplotlib.ticker import FuncFormatter, MultipleLocator
+from astropy.coordinates import AltAz, get_body, get_sun
 from astropy.time import Time
+from matplotlib.ticker import FuncFormatter, MultipleLocator
 
 from obsplanner.targets import Target
 
@@ -35,9 +35,6 @@ def plot_sky(
     dark framed label. Its marker and label use the same bright yellow as the
     selected observability curve, regardless of its assigned target color.
     """
-    if not targets:
-        raise ValueError("At least one target is required.")
-
     figure = plt.figure(figsize=(5.2, 5.2), constrained_layout=True)
     sky_axis = figure.add_subplot(111, projection="polar")
     observation_time = Time(observation_time)
@@ -133,6 +130,34 @@ def plot_sky(
             xytext=(7, 5),
             textcoords="offset points",
             color=moon_color,
+            fontsize=14,
+            ha="left",
+            va="bottom",
+            annotation_clip=False,
+            zorder=4,
+        )
+        sun = get_sun(observation_time).transform_to(frame)
+        sun_azimuth = sun.az.radian
+        sun_altitude = sun.alt.to_value(u.deg)
+        sun_radius = np.sqrt(2.0) * np.sin(
+            np.radians(90.0 - sun_altitude) / 2.0
+        )
+        sun_color = "#d62728"
+        sky_axis.scatter(
+            sun_azimuth,
+            sun_radius,
+            s=95,
+            color=sun_color,
+            edgecolor="white",
+            linewidth=0.8,
+            zorder=3,
+        )
+        sky_axis.annotate(
+            "Sun",
+            (sun_azimuth, sun_radius),
+            xytext=(7, 5),
+            textcoords="offset points",
+            color=sun_color,
             fontsize=14,
             ha="left",
             va="bottom",
@@ -429,6 +454,7 @@ def plot_combined_visibility(
     show_moon: bool = True,
     current_time: Time | None = None,
     show_legend: bool = True,
+    include_targets: bool = True,
 ) -> plt.Figure:
     """Plot several targets together with user-selected colors."""
     if not results:
@@ -450,7 +476,8 @@ def plot_combined_visibility(
     _shade_sky(airmass_axis, elapsed_hours, reference.sun_altitude)
 
     legend_handles = []
-    for target_index, result in enumerate(results):
+    plotted_results = results if include_targets else ()
+    for target_index, result in enumerate(plotted_results):
         color = colors.get(result.target.name, "#ff4b4b")
         display_airmass = np.where(
             (result.airmass >= 1)

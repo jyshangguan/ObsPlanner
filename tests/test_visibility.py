@@ -514,6 +514,31 @@ def test_combined_plot_can_leave_legend_to_the_ui():
     )
 
 
+def test_combined_plot_can_show_only_moon_and_sun():
+    observer = load_observatories()["palomar"].to_observer()
+    constraints = VisibilityConstraints()
+    reference_target = parse_manual_coordinates("00:00:00", "+00:00:00", "ref")
+    reference = calculate_visibility(
+        reference_target,
+        observer,
+        date(2026, 8, 23),
+        constraints,
+        cadence_minutes=30,
+    )
+
+    figure = plot_combined_visibility(
+        [reference],
+        constraints,
+        colors={},
+        include_targets=False,
+    )
+    labels = [line.get_label() for line in figure.axes[0].get_lines()]
+
+    assert "ref" not in labels
+    assert "Moon altitude" in labels
+    assert "Sun altitude" in labels
+
+
 def test_sky_plot_shows_all_targets_with_matching_colors_and_labels():
     targets = [
         parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783"),
@@ -562,7 +587,21 @@ def test_sky_plot_includes_the_moon_by_default():
     assert [text.get_text() for text in figure.axes[0].texts] == [
         "NGC 3783",
         "Moon",
+        "Sun",
     ]
+
+
+def test_sky_plot_can_show_the_moon_without_targets():
+    observer = load_observatories()["palomar"].to_observer()
+
+    figure = plot_sky(
+        [],
+        observer,
+        Time("2026-08-24T04:00:00"),
+        colors={},
+    )
+
+    assert [text.get_text() for text in figure.axes[0].texts] == ["Moon", "Sun"]
 
 
 def test_single_visibility_plot_accepts_target_color():
