@@ -127,7 +127,7 @@ def test_combined_plot_time_axes(time_axis, expected_label):
     )
 
     figure = plot_visibility(result, constraints, time_axis)
-    assert figure.get_size_inches() == pytest.approx((12.5, 9.15))
+    assert figure.get_size_inches() == pytest.approx((12.5, 8.35))
     assert len(figure.axes) == 1
     assert figure.axes[0].get_ylabel() == "Airmass [sec(z)]"
     assert figure.axes[0].child_axes[0].get_ylabel() == "Altitude (degrees)"
@@ -366,7 +366,7 @@ def test_combined_plot_uses_target_colors():
         colors=colors,
         show_moon=False,
     )
-    assert figure.get_size_inches() == pytest.approx((12.5, 9.15))
+    assert figure.get_size_inches() == pytest.approx((12.5, 8.35))
     legend_labels = [
         text.get_text() for text in figure.axes[0].get_legend().get_texts()
     ]

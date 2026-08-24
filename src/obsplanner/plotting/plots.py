@@ -313,7 +313,7 @@ def plot_visibility(
     )
 
     figure, airmass_axis = plt.subplots(
-        figsize=(12.5, 9.15), constrained_layout=True
+        figsize=(12.5, 8.35), constrained_layout=True
     )
     figure.get_layout_engine().set(h_pad=0.12, w_pad=0.08)
     altitude_axis = airmass_axis.secondary_yaxis(
@@ -430,7 +430,7 @@ def plot_combined_visibility(
         (reference.times - reference.times[0]).to_value(u.hour), dtype=float
     )
     figure, airmass_axis = plt.subplots(
-        figsize=(12.5, 9.15), constrained_layout=True
+        figsize=(12.5, 8.35), constrained_layout=True
     )
     figure.get_layout_engine().set(h_pad=0.12, w_pad=0.08)
     altitude_axis = airmass_axis.secondary_yaxis(
