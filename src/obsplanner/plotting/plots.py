@@ -363,15 +363,17 @@ def plot_visibility(
             label="Moon altitude",
             zorder=4,
         )[0]
+        moon_line.set_gid("obs-body-moon-solid")
         sun_line = airmass_axis.plot(
             elapsed_hours,
             sun_curve,
-            color="#ff9f1c",
-            linewidth=2.0,
-            linestyle="-",
+            color="#d62728",
+            linewidth=3.0,
+            linestyle="--",
             label="Sun altitude",
             zorder=4,
         )[0]
+        sun_line.set_gid("obs-body-sun-solid")
 
     current_time_line = _add_current_time_marker(
         airmass_axis, result, current_time
@@ -500,6 +502,7 @@ def plot_combined_visibility(
             label="Moon altitude",
             zorder=4,
         )[0]
+        moon_line.set_gid("obs-body-moon-solid")
         legend_handles.append(moon_line)
         sun_curve = altitude_to_airmass(reference.sun_altitude)
         sun_curve = np.where(
@@ -512,12 +515,13 @@ def plot_combined_visibility(
         sun_line = airmass_axis.plot(
             elapsed_hours,
             sun_curve,
-            color="#ff9f1c",
-            linewidth=2.0,
-            linestyle="-",
+            color="#d62728",
+            linewidth=3.0,
+            linestyle="--",
             label="Sun altitude",
             zorder=4,
         )[0]
+        sun_line.set_gid("obs-body-sun-solid")
         legend_handles.append(sun_line)
 
     current_time_line = _add_current_time_marker(

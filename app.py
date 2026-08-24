@@ -1147,7 +1147,8 @@ def render_visibility_figure(figure: plt.Figure) -> None:
         color = html.escape(str(handle.get_color()), quote=True)
         safe_label = html.escape(label)
         gid = handle.get_gid() or ""
-        target_key = gid.rsplit("-", 1)[0] if gid.startswith("obs-target-") else ""
+        selectable_gid = gid.startswith(("obs-target-", "obs-body-"))
+        target_key = gid.rsplit("-", 1)[0] if selectable_gid else ""
         target_attribute = (
             f' data-target="{html.escape(target_key, quote=True)}"'
             if target_key
@@ -1168,7 +1169,7 @@ def render_visibility_figure(figure: plt.Figure) -> None:
     storage_key = "obsplanner-visibility:" + "|".join(
         f"{handle.get_gid()}={label}"
         for handle, label in entries
-        if (handle.get_gid() or "").startswith("obs-target-")
+        if (handle.get_gid() or "").startswith(("obs-target-", "obs-body-"))
     )
     storage_key_json = json.dumps(storage_key)
     component = f"""
@@ -1208,8 +1209,10 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 filter: drop-shadow(0 0 1px #333);
             }}
             .legend-item.selected .legend-label {{ font-weight: 700; }}
-            [id^="obs-target-"] path {{ cursor: pointer; pointer-events: stroke; }}
-            [id^="obs-target-"].selected path:not(.curve-hit) {{
+            [id^="obs-target-"] path,
+            [id^="obs-body-"] path {{ cursor: pointer; pointer-events: stroke; }}
+            [id^="obs-target-"].selected path:not(.curve-hit),
+            [id^="obs-body-"].selected path:not(.curve-hit) {{
                 filter: drop-shadow(0 0 1px #333);
                 stroke: #ffea00 !important;
                 stroke-width: 4 !important;
@@ -1246,11 +1249,11 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                     );
                 }} catch (error) {{ /* Sky-plot sync is best-effort. */ }}
             }};
-            const targetGroups = Array.from(
-                document.querySelectorAll('[id^="obs-target-"]')
+            const selectableGroups = Array.from(
+                document.querySelectorAll('[id^="obs-target-"], [id^="obs-body-"]')
             );
             const originalOrders = new Map();
-            targetGroups.forEach(group => {{
+            selectableGroups.forEach(group => {{
                 if (!originalOrders.has(group.parentElement)) {{
                     originalOrders.set(
                         group.parentElement,
@@ -1294,7 +1297,7 @@ def render_visibility_figure(figure: plt.Figure) -> None:
             document.querySelectorAll(".legend-item[data-target]").forEach(item => {{
                 item.addEventListener("click", () => selectTarget(item.dataset.target));
             }});
-            targetGroups.forEach(group => {{
+            selectableGroups.forEach(group => {{
                 const target = group.id.rsplit ? group.id.rsplit("-", 1)[0] :
                     group.id.replace(/-(solid|dashed)$/, "");
                 group.querySelectorAll("path").forEach(path => {{

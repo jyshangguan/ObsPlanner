@@ -194,8 +194,11 @@ def test_combined_plot_time_axes(time_axis, expected_label):
     )
     assert moon_line.get_linestyle() == "--"
     assert moon_line.get_color() == "#fff2a8"
-    assert sun_line.get_linestyle() == "-"
-    assert sun_line.get_color() == "#ff9f1c"
+    assert moon_line.get_gid() == "obs-body-moon-solid"
+    assert sun_line.get_linestyle() == "--"
+    assert sun_line.get_color() == "#d62728"
+    assert sun_line.get_linewidth() == pytest.approx(3.0)
+    assert sun_line.get_gid() == "obs-body-sun-solid"
     assert len(figure.axes[0].texts) == 0
     title = figure.axes[0].get_title()
     assert "Moon fraction" in title

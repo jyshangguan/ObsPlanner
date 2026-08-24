@@ -38,8 +38,8 @@ run it.
 - Rise, transit, set, altitude, airmass, and observing-window summaries
 - Target, Moon, and Sun curves on the same airmass axis, plus civil, nautical,
   astronomical twilight, and night shading
-- Moon altitude shown as a light-yellow dashed curve and Sun altitude as an
-  orange solid curve
+- Moon altitude shown as a light-yellow dashed curve and Sun altitude as a
+  thick red dashed curve; both can be selected like target curves
 - Observing date and midpoint Moon illuminated fraction in the plot title
 - Observatory in the plot title and target name in the curve legend
 - Settings toggle for showing or hiding the Moon and Sun curves
