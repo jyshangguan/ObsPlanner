@@ -174,15 +174,10 @@ def test_combined_plot_time_axes(time_axis, expected_label):
 
     figure = plot_visibility(result, constraints, time_axis)
     assert figure.get_size_inches() == pytest.approx((12.5, 4.8))
-    assert len(figure.axes) == 2
+    assert len(figure.axes) == 1
     assert figure.axes[0].get_ylabel() == "Airmass [sec(z)]"
-    assert figure.axes[1].get_ylabel() == "Altitude (degrees)"
     assert figure.axes[0].xaxis.label.get_fontsize() == pytest.approx(12)
     assert figure.axes[0].yaxis.label.get_fontsize() == pytest.approx(12)
-    assert (
-        figure.axes[1].yaxis.label.get_fontsize()
-        == pytest.approx(12)
-    )
     assert figure.axes[0].title.get_fontsize() == pytest.approx(14)
     assert expected_label in figure.axes[0].get_xlabel()
     lines = [line for axis in figure.axes for line in axis.get_lines()]
@@ -201,7 +196,6 @@ def test_combined_plot_time_axes(time_axis, expected_label):
     assert moon_line.get_color() == "#fff2a8"
     assert sun_line.get_linestyle() == "-"
     assert sun_line.get_color() == "#ff9f1c"
-    assert np.isfinite(sun_line.get_ydata()).all()
     assert len(figure.axes[0].texts) == 0
     title = figure.axes[0].get_title()
     assert "Moon fraction" in title
@@ -217,7 +211,6 @@ def test_combined_plot_time_axes(time_axis, expected_label):
         "Sun altitude",
     ]
     assert figure.axes[0].get_ylim() == pytest.approx((3.0, 0.97))
-    assert figure.axes[1].get_ylim() == pytest.approx((-90, 90))
     assert all(
         text.get_fontsize() == pytest.approx(12.3)
         for text in figure.axes[0].get_legend().get_texts()
@@ -339,6 +332,34 @@ def test_moon_and_sun_curves_can_be_hidden():
     assert "Moon altitude" not in legend_labels
     assert "Sun altitude" not in legend_labels
     assert "Moon separation < 30°" not in legend_labels
+
+
+def test_sun_curve_uses_the_target_airmass_axis():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target,
+        observer,
+        date(2026, 3, 15),
+        constraints,
+        cadence_minutes=30,
+        show_daytime=True,
+    )
+
+    figure = plot_visibility(result, constraints, "Local time")
+    sun_line = next(
+        line
+        for line in figure.axes[0].get_lines()
+        if line.get_label() == "Sun altitude"
+    )
+    finite_sun = np.asarray(sun_line.get_ydata(), dtype=float)
+    finite_sun = finite_sun[np.isfinite(finite_sun)]
+
+    assert len(figure.axes) == 1
+    assert finite_sun.size > 0
+    assert np.all(finite_sun >= 1)
+    assert np.all(finite_sun <= constraints.maximum_airmass)
 
 
 def test_current_time_marker_is_drawn_inside_single_target_night():

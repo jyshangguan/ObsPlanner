@@ -36,8 +36,8 @@ run it.
 - Adjustable maximum-airmass and Moon-separation constraints
 - Five-minute sampling of the astronomical night
 - Rise, transit, set, altitude, airmass, and observing-window summaries
-- Target visibility curves with airmass on the left and Moon/Sun altitude on
-  the right, plus civil, nautical, astronomical twilight, and night shading
+- Target, Moon, and Sun curves on the same airmass axis, plus civil, nautical,
+  astronomical twilight, and night shading
 - Moon altitude shown as a light-yellow dashed curve and Sun altitude as an
   orange solid curve
 - Observing date and midpoint Moon illuminated fraction in the plot title
