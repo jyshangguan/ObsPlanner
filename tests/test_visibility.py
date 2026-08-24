@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -19,7 +19,53 @@ from obsplanner.visibility import (
     VisibilityConstraints,
     calculate_visibility,
     find_observing_windows,
+    observing_date_for_local_time,
 )
+
+
+@pytest.mark.parametrize(
+    ("hour", "expected_date"),
+    [
+        (2, date(2026, 8, 23)),
+        (11, date(2026, 8, 23)),
+        (12, date(2026, 8, 24)),
+        (22, date(2026, 8, 24)),
+    ],
+)
+def test_current_observing_date_uses_local_noon_boundary(hour, expected_date):
+    local_time = datetime(
+        2026, 8, 24, hour, 0, tzinfo=ZoneInfo("America/Los_Angeles")
+    )
+    assert observing_date_for_local_time(local_time) == expected_date
+
+
+def test_second_half_night_current_time_marker_uses_previous_evening_date():
+    local_time = datetime(
+        2026, 8, 24, 2, 0, tzinfo=ZoneInfo("America/Los_Angeles")
+    )
+    observer = load_observatories()["palomar"].to_observer()
+    target = parse_manual_coordinates("00:42:44.3", "+41:16:09", "M31")
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target,
+        observer,
+        observing_date_for_local_time(local_time),
+        constraints,
+        cadence_minutes=30,
+        show_daytime=True,
+    )
+
+    figure = plot_combined_visibility(
+        [result],
+        constraints,
+        colors={"M31": "#ff4b4b"},
+        current_time=Time(local_time),
+    )
+
+    assert any(
+        line.get_label() == "Current time"
+        for line in figure.axes[0].get_lines()
+    )
 
 
 def test_find_observing_windows():

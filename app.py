@@ -41,6 +41,7 @@ from obsplanner.targets import (  # noqa: E402
 from obsplanner.visibility import (  # noqa: E402
     VisibilityConstraints,
     calculate_visibility,
+    observing_date_for_local_time,
 )
 
 st.set_page_config(
@@ -831,17 +832,24 @@ with controls_column:
         use_current_sky_time = bool(st.session_state.use_current_time)
         date_column, fixed_time_column = st.columns([1.7, 1])
         with date_column:
-            observatory_today = datetime.now(ZoneInfo(site.timezone)).date()
+            observatory_now = datetime.now(ZoneInfo(site.timezone))
+            current_observing_date = observing_date_for_local_time(
+                observatory_now
+            )
             observing_date = st.date_input(
                 "Observing date",
-                value=observatory_today,
+                value=current_observing_date,
                 key=(
-                    f"current_observing_date_{selected_key}_{observatory_today}"
+                    f"current_observing_date_{selected_key}_"
+                    f"{current_observing_date}"
                     if use_current_sky_time
                     else f"observing_date_{selected_key}"
                 ),
                 disabled=use_current_sky_time,
-                help=f"Calendar date at {site.name} ({site.timezone}).",
+                help=(
+                    f"Evening date of the observing night at {site.name} "
+                    f"({site.timezone})."
+                ),
             )
         sky_clock_time = None
         if not use_current_sky_time:

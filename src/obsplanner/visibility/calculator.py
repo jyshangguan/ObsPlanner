@@ -66,6 +66,11 @@ class VisibilityResult:
         return float(np.min(finite)) if finite.size else float("nan")
 
 
+def observing_date_for_local_time(local_datetime: datetime) -> date:
+    """Return the evening date for the observing night containing a local time."""
+    return (local_datetime - timedelta(hours=12)).date()
+
+
 def _safe_event(method, reference: Time, target: FixedTarget, which: str) -> Time | None:
     try:
         event = method(reference, target, which=which)
