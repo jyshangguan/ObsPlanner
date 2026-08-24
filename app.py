@@ -181,6 +181,10 @@ st.markdown(
             padding-bottom: 0;
             padding-top: 0;
         }
+        .st-key-current_times_panel
+        [class*="st-key-edit_remote_clock_"] button p {
+            transform: translateY(0.45rem);
+        }
         .st-key-add_remote_clock_control
         [data-testid="stButton"] button[kind="tertiary"] {
             opacity: 0;
