@@ -155,6 +155,12 @@ st.markdown(
             font-weight: 600;
             margin-bottom: 0.3rem;
         }
+        .st-key-current_times_panel {
+            border: 1px solid rgba(49, 51, 63, 0.24);
+            border-radius: 0.65rem;
+            box-sizing: border-box;
+            padding: 0.65rem 0.8rem 0.75rem;
+        }
         .observer-clock-time {
             font-size: 1rem;
             font-variant-numeric: tabular-nums;
@@ -183,7 +189,11 @@ st.markdown(
         }
         .st-key-current_times_panel
         [class*="st-key-edit_remote_clock_"] button p {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
             transform: translateY(0.45rem);
+            white-space: nowrap;
         }
         .st-key-add_remote_clock_control
         [data-testid="stButton"] button[kind="tertiary"] {
@@ -862,7 +872,7 @@ with controls_column:
             '<div class="current-times-title">Current times</div>',
             unsafe_allow_html=True,
         )
-        palomar_label, palomar_time = st.columns([1.05, 1])
+        palomar_label, palomar_time = st.columns([1.45, 1])
         palomar_label.markdown(
             '<div class="observer-clock-name">Palomar</div>',
             unsafe_allow_html=True,
@@ -870,7 +880,7 @@ with controls_column:
         with palomar_time:
             render_observer_clock(catalog["palomar"].timezone)
 
-        utc_label, utc_time = st.columns([1.05, 1])
+        utc_label, utc_time = st.columns([1.45, 1])
         utc_label.markdown(
             '<div class="observer-clock-name">UTC</div>',
             unsafe_allow_html=True,
@@ -1280,7 +1290,7 @@ def render_visibility_figure(figure: plt.Figure) -> None:
             }} catch (error) {{ /* Selection still works without persistence. */ }}
         </script>
     """
-    st.iframe(component, width="stretch", height=435)
+    st.iframe(component, width="stretch", height=475)
 
 
 @st.fragment(run_every=refresh_interval)
