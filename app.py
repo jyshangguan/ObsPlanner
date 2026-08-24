@@ -1159,20 +1159,22 @@ def render_visibility_figure(figure: plt.Figure) -> None:
         <style>
             html, body {{ margin: 0; overflow: hidden; }}
             .visibility-layout {{
+                align-items: stretch;
                 display: grid;
                 gap: 1rem;
                 grid-template-columns: minmax(0, 5fr) minmax(9rem, 1.35fr);
-                height: 430px;
             }}
             .plot-panel {{ min-width: 0; }}
             .plot-panel svg {{ display: block; height: auto; width: 100%; }}
+            .legend-slot {{ min-height: 0; position: relative; }}
             .legend-panel {{
                 border: 1px solid rgba(49, 51, 63, 0.2);
                 border-radius: 0.5rem;
                 box-sizing: border-box;
-                height: 420px;
+                inset: 0;
                 overflow-y: auto;
                 padding: 0.5rem;
+                position: absolute;
             }}
             .legend-item {{
                 align-items: center;
@@ -1205,7 +1207,9 @@ def render_visibility_figure(figure: plt.Figure) -> None:
         </style>
         <div class="visibility-layout">
             <div class="plot-panel">{svg}</div>
-            <div class="legend-panel">{"".join(legend_items)}</div>
+            <div class="legend-slot">
+                <div class="legend-panel">{"".join(legend_items)}</div>
+            </div>
         </div>
         <script>
             const storageKey = {storage_key_json};
@@ -1291,7 +1295,7 @@ def render_visibility_figure(figure: plt.Figure) -> None:
             }} catch (error) {{ /* Selection still works without persistence. */ }}
         </script>
     """
-    st.iframe(component, width="stretch", height=475)
+    st.iframe(component, width="stretch", height="content")
 
 
 @st.fragment(run_every=refresh_interval)
