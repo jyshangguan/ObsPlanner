@@ -156,6 +156,7 @@ st.markdown(
             margin-bottom: 0.3rem;
         }
         .st-key-current_times_panel {
+            background: rgba(255, 75, 75, 0.10);
             border: 1px solid rgba(49, 51, 63, 0.24);
             border-radius: 0.65rem;
             box-sizing: border-box;
