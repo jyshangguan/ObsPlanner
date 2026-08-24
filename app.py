@@ -866,6 +866,14 @@ with controls_column:
         with palomar_time:
             render_observer_clock(catalog["palomar"].timezone)
 
+        utc_label, utc_time = st.columns([1.05, 1])
+        utc_label.markdown(
+            '<div class="observer-clock-name">UTC</div>',
+            unsafe_allow_html=True,
+        )
+        with utc_time:
+            render_observer_clock("UTC")
+
         for remote_index, saved_timezone in enumerate(
             st.session_state.remote_clock_timezones
         ):

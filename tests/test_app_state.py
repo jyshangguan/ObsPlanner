@@ -75,6 +75,13 @@ def test_live_palomar_and_remote_observer_clocks_are_available():
         "observer-clock-name" in item.value and "Palomar" in item.value
         for item in app.markdown
     )
+    clock_labels = [
+        item.value
+        for item in app.markdown
+        if '<div class="observer-clock-name">' in item.value
+    ]
+    assert "Palomar" in clock_labels[0]
+    assert "UTC" in clock_labels[1]
 
     _element(app.button, "＋").click()
     app.run(timeout=30)
