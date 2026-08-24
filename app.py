@@ -155,9 +155,6 @@ st.markdown(
             font-weight: 600;
             margin-bottom: 0.3rem;
         }
-        .st-key-current_times_panel {
-            transform: translateX(-2.6cm);
-        }
         .observer-clock-time {
             font-size: 1rem;
             font-variant-numeric: tabular-nums;
