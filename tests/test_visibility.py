@@ -487,6 +487,7 @@ def test_sky_plot_shows_all_targets_with_matching_colors_and_labels():
     sky_axis = figure.axes[0]
 
     assert sky_axis.name == "polar"
+    assert sky_axis.get_theta_direction() == 1
     assert sky_axis.get_title().startswith("Sky plot\nParanal Observatory ·")
     assert len(sky_axis.collections) == 2
     assert [text.get_text() for text in sky_axis.texts] == [

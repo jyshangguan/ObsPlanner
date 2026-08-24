@@ -46,7 +46,9 @@ def plot_sky(
     horizon_radius = 1.0
     outer_radius = np.sqrt(2.0)
     sky_axis.set_theta_zero_location("N")
-    sky_axis.set_theta_direction(-1)
+    # Astronomical sky charts are viewed from inside the celestial sphere:
+    # east is on the left and west is on the right.
+    sky_axis.set_theta_direction(1)
     sky_axis.set_ylim(0, outer_radius)
     sky_axis.axhspan(
         horizon_radius,
