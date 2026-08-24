@@ -744,9 +744,12 @@ with st.sidebar:
             ),
         )
         show_moon = st.toggle(
-            "Show the Moon",
+            "Show the Moon & Sun",
             value=True,
-            help="Show or hide the Moon in both plots.",
+            help=(
+                "Show or hide the Moon in the sky plot and the Moon and Sun "
+                "altitude curves in the observability plot."
+            ),
         )
         show_sky_plot = st.toggle("Show sky plot", value=True)
         separate_panels = st.toggle(
@@ -1119,7 +1122,12 @@ st.markdown('<div class="plot-spacer"></div>', unsafe_allow_html=True)
 def render_visibility_figure(figure: plt.Figure) -> None:
     """Render an interactive SVG plot beside its scrolling legend."""
     plot_axis = figure.axes[0]
-    handles, labels = plot_axis.get_legend_handles_labels()
+    handles = []
+    labels = []
+    for axis in figure.axes:
+        axis_handles, axis_labels = axis.get_legend_handles_labels()
+        handles.extend(axis_handles)
+        labels.extend(axis_labels)
     entries = [
         (handle, label)
         for handle, label in zip(handles, labels, strict=True)

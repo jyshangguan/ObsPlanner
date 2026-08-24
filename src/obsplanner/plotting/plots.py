@@ -305,22 +305,11 @@ def plot_visibility(
     target_close_to_moon = np.where(
         ~moon_separation_passes, display_airmass, np.nan
     )
-    moon_curve = altitude_to_airmass(result.moon_altitude)
-    moon_curve = np.where(
-        (result.moon_altitude > 0)
-        & (moon_curve >= 1)
-        & (moon_curve <= constraints.maximum_airmass),
-        moon_curve,
-        np.nan,
-    )
-
     figure, airmass_axis = plt.subplots(
         figsize=(12.5, 4.8), constrained_layout=True
     )
     figure.get_layout_engine().set(h_pad=0.12, w_pad=0.08)
-    altitude_axis = airmass_axis.secondary_yaxis(
-        "right", functions=(airmass_to_altitude, altitude_to_airmass)
-    )
+    altitude_axis = airmass_axis.twinx()
     _shade_sky(airmass_axis, elapsed_hours, result.sun_altitude)
 
     visibility_line = airmass_axis.plot(
@@ -348,14 +337,24 @@ def plot_visibility(
     )[0]
     moon_limited_line.set_gid(f"obs-target-{target_index}-dashed")
     moon_line = None
+    sun_line = None
     if show_moon:
-        moon_line = airmass_axis.plot(
+        moon_line = altitude_axis.plot(
             elapsed_hours,
-            moon_curve,
+            result.moon_altitude,
             color="#fff2a8",
             linewidth=2.0,
             linestyle="--",
             label="Moon altitude",
+            zorder=4,
+        )[0]
+        sun_line = altitude_axis.plot(
+            elapsed_hours,
+            result.sun_altitude,
+            color="#ff9f1c",
+            linewidth=2.0,
+            linestyle="-",
+            label="Sun altitude",
             zorder=4,
         )[0]
 
@@ -379,7 +378,8 @@ def plot_visibility(
         "Altitude (degrees)", color="#9c6500", fontsize=12
     )
     altitude_axis.tick_params(axis="y", colors="#9c6500")
-    altitude_axis.set_yticks([20, 30, 45, 60, 90])
+    altitude_axis.set_ylim(-90, 90)
+    altitude_axis.set_yticks([-90, -60, -30, 0, 30, 60, 90])
 
     airmass_axis.grid(color="white", linestyle=":", linewidth=0.9, alpha=0.7)
     airmass_axis.set_title(
@@ -393,6 +393,8 @@ def plot_visibility(
     legend_handles = [visibility_line]
     if moon_line is not None:
         legend_handles.append(moon_line)
+    if sun_line is not None:
+        legend_handles.append(sun_line)
     if current_time_line is not None:
         legend_handles.append(current_time_line)
     if show_legend:
@@ -435,9 +437,7 @@ def plot_combined_visibility(
         figsize=(12.5, 4.8), constrained_layout=True
     )
     figure.get_layout_engine().set(h_pad=0.12, w_pad=0.08)
-    altitude_axis = airmass_axis.secondary_yaxis(
-        "right", functions=(airmass_to_altitude, altitude_to_airmass)
-    )
+    altitude_axis = airmass_axis.twinx()
     _shade_sky(airmass_axis, elapsed_hours, reference.sun_altitude)
 
     legend_handles = []
@@ -476,17 +476,9 @@ def plot_combined_visibility(
         legend_handles.append(solid_line)
 
     if show_moon:
-        moon_curve = altitude_to_airmass(reference.moon_altitude)
-        moon_curve = np.where(
-            (reference.moon_altitude > 0)
-            & (moon_curve >= 1)
-            & (moon_curve <= constraints.maximum_airmass),
-            moon_curve,
-            np.nan,
-        )
-        moon_line = airmass_axis.plot(
+        moon_line = altitude_axis.plot(
             elapsed_hours,
-            moon_curve,
+            reference.moon_altitude,
             color="#fff2a8",
             linewidth=2.0,
             linestyle="--",
@@ -494,6 +486,16 @@ def plot_combined_visibility(
             zorder=4,
         )[0]
         legend_handles.append(moon_line)
+        sun_line = altitude_axis.plot(
+            elapsed_hours,
+            reference.sun_altitude,
+            color="#ff9f1c",
+            linewidth=2.0,
+            linestyle="-",
+            label="Sun altitude",
+            zorder=4,
+        )[0]
+        legend_handles.append(sun_line)
 
     current_time_line = _add_current_time_marker(
         airmass_axis, reference, current_time
@@ -516,7 +518,8 @@ def plot_combined_visibility(
         "Altitude (degrees)", color="#9c6500", fontsize=12
     )
     altitude_axis.tick_params(axis="y", colors="#9c6500")
-    altitude_axis.set_yticks([20, 30, 45, 60, 90])
+    altitude_axis.set_ylim(-90, 90)
+    altitude_axis.set_yticks([-90, -60, -30, 0, 30, 60, 90])
     airmass_axis.grid(color="white", linestyle=":", linewidth=0.9, alpha=0.7)
     airmass_axis.set_title(
         f"{reference.observer.name} · {reference.observing_date.isoformat()} · "

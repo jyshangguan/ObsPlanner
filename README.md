@@ -36,13 +36,13 @@ run it.
 - Adjustable maximum-airmass and Moon-separation constraints
 - Five-minute sampling of the astronomical night
 - Rise, transit, set, altitude, airmass, and observing-window summaries
-- One visibility curve with airmass on the left and the equivalent nonlinear
-  altitude scale on the right, plus civil, nautical, astronomical twilight,
-  and night shading
-- Moon altitude shown as a light-yellow dashed curve
+- Target visibility curves with airmass on the left and Moon/Sun altitude on
+  the right, plus civil, nautical, astronomical twilight, and night shading
+- Moon altitude shown as a light-yellow dashed curve and Sun altitude as an
+  orange solid curve
 - Observing date and midpoint Moon illuminated fraction in the plot title
 - Observatory in the plot title and target name in the curve legend
-- Sidebar toggle for showing or hiding the Moon curve
+- Settings toggle for showing or hiding the Moon and Sun curves
 - Solid target curve where the Moon-separation constraint passes and dashed
   target curve where it fails
 - Compact observing details inside the plot and line legend outside its right

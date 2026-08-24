@@ -174,25 +174,34 @@ def test_combined_plot_time_axes(time_axis, expected_label):
 
     figure = plot_visibility(result, constraints, time_axis)
     assert figure.get_size_inches() == pytest.approx((12.5, 4.8))
-    assert len(figure.axes) == 1
+    assert len(figure.axes) == 2
     assert figure.axes[0].get_ylabel() == "Airmass [sec(z)]"
-    assert figure.axes[0].child_axes[0].get_ylabel() == "Altitude (degrees)"
+    assert figure.axes[1].get_ylabel() == "Altitude (degrees)"
     assert figure.axes[0].xaxis.label.get_fontsize() == pytest.approx(12)
     assert figure.axes[0].yaxis.label.get_fontsize() == pytest.approx(12)
     assert (
-        figure.axes[0].child_axes[0].yaxis.label.get_fontsize()
+        figure.axes[1].yaxis.label.get_fontsize()
         == pytest.approx(12)
     )
     assert figure.axes[0].title.get_fontsize() == pytest.approx(14)
     assert expected_label in figure.axes[0].get_xlabel()
-    labels = [line.get_label() for line in figure.axes[0].get_lines()]
+    lines = [line for axis in figure.axes for line in axis.get_lines()]
+    labels = [line.get_label() for line in lines]
     assert "Moon altitude" in labels
+    assert "Sun altitude" in labels
     moon_line = next(
         line
-        for line in figure.axes[0].get_lines()
+        for line in lines
         if line.get_label() == "Moon altitude"
     )
+    sun_line = next(
+        line for line in lines if line.get_label() == "Sun altitude"
+    )
     assert moon_line.get_linestyle() == "--"
+    assert moon_line.get_color() == "#fff2a8"
+    assert sun_line.get_linestyle() == "-"
+    assert sun_line.get_color() == "#ff9f1c"
+    assert np.isfinite(sun_line.get_ydata()).all()
     assert len(figure.axes[0].texts) == 0
     title = figure.axes[0].get_title()
     assert "Moon fraction" in title
@@ -205,8 +214,10 @@ def test_combined_plot_time_axes(time_axis, expected_label):
     assert legend_labels == [
         "NGC 3783",
         "Moon altitude",
+        "Sun altitude",
     ]
     assert figure.axes[0].get_ylim() == pytest.approx((3.0, 0.97))
+    assert figure.axes[1].get_ylim() == pytest.approx((-90, 90))
     assert all(
         text.get_fontsize() == pytest.approx(12.3)
         for text in figure.axes[0].get_legend().get_texts()
@@ -304,7 +315,7 @@ def test_local_time_axis_matches_every_observatory_timezone(current_time):
         assert site.timezone in axis_label
 
 
-def test_moon_curve_can_be_hidden():
+def test_moon_and_sun_curves_can_be_hidden():
     target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
     observer = load_observatories()["paranal"].to_observer()
     constraints = VisibilityConstraints()
@@ -315,12 +326,18 @@ def test_moon_curve_can_be_hidden():
     figure = plot_visibility(
         result, constraints, "Local time", show_moon=False
     )
-    line_labels = [line.get_label() for line in figure.axes[0].get_lines()]
+    line_labels = [
+        line.get_label()
+        for axis in figure.axes
+        for line in axis.get_lines()
+    ]
     legend_labels = [
         text.get_text() for text in figure.axes[0].get_legend().get_texts()
     ]
     assert "Moon altitude" not in line_labels
+    assert "Sun altitude" not in line_labels
     assert "Moon altitude" not in legend_labels
+    assert "Sun altitude" not in legend_labels
     assert "Moon separation < 30°" not in legend_labels
 
 
@@ -448,9 +465,14 @@ def test_combined_plot_can_leave_legend_to_the_ui():
     )
 
     assert figure.axes[0].get_legend() is None
-    labels = [line.get_label() for line in figure.axes[0].get_lines()]
+    labels = [
+        line.get_label()
+        for axis in figure.axes
+        for line in axis.get_lines()
+    ]
     assert "NGC 3783" in labels
     assert "Moon altitude" in labels
+    assert "Sun altitude" in labels
     assert "Airmass limit" not in labels
     target_line = next(
         line for line in figure.axes[0].get_lines()

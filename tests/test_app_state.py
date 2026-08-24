@@ -64,6 +64,7 @@ def test_fixed_sky_time_is_a_typed_hhmm_field_beside_editable_date():
 
 def test_live_palomar_and_remote_observer_clocks_are_available():
     app = AppTest.from_file("app.py").run(timeout=30)
+    assert _element(app.toggle, "Show the Moon & Sun").value
     assert any(
         "Current times" in item.value for item in app.markdown
     )
