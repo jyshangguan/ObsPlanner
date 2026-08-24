@@ -1193,6 +1193,26 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 padding: 0.5rem;
                 position: absolute;
             }}
+            .legend-search-row {{
+                background: white;
+                padding: 0 0 0.5rem;
+                position: sticky;
+                top: 0;
+                z-index: 2;
+            }}
+            .legend-search {{
+                border: 1px solid rgba(49, 51, 63, 0.25);
+                border-radius: 0.35rem;
+                box-sizing: border-box;
+                color: inherit;
+                font: inherit;
+                padding: 0.38rem 0.5rem;
+                width: 100%;
+            }}
+            .legend-search:focus {{
+                border-color: #ff4b4b;
+                outline: 1px solid #ff4b4b;
+            }}
             .legend-item {{
                 align-items: center;
                 display: flex;
@@ -1227,11 +1247,21 @@ def render_visibility_figure(figure: plt.Figure) -> None:
         <div class="visibility-layout">
             <div class="plot-panel">{svg}</div>
             <div class="legend-slot">
-                <div class="legend-panel">{"".join(legend_items)}</div>
+                <div class="legend-panel">
+                    <div class="legend-search-row">
+                        <input class="legend-search" type="search"
+                            placeholder="Search target, press Enter…"
+                            aria-label="Search target">
+                    </div>
+                    {"".join(legend_items)}
+                </div>
             </div>
         </div>
         <script>
             const storageKey = {storage_key_json};
+            const scrollStorageKey = storageKey + ":legend-scroll";
+            const legendPanel = document.querySelector(".legend-panel");
+            const searchInput = document.querySelector(".legend-search");
             const syncSelectionParam = (target) => {{
                 try {{
                     const parentLocation = window.parent.location;
@@ -1268,12 +1298,13 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 }});
             }};
 
-            const selectTarget = (target) => {{
+            const selectTarget = (target, forceSelect = false) => {{
                 const selectedLegend = document.querySelector(
                     `.legend-item[data-target="${{target}}"]`
                 );
                 if (!selectedLegend) return;
-                const turnOff = selectedLegend.classList.contains("selected");
+                const turnOff = selectedLegend.classList.contains("selected")
+                    && !forceSelect;
                 restoreDrawingOrder();
                 document.querySelectorAll(".selected").forEach(
                     element => element.classList.remove("selected")
@@ -1293,6 +1324,55 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 catch (error) {{ /* Selection still works without persistence. */ }}
                 syncSelectionParam(target);
             }};
+
+            const saveLegendScroll = () => {{
+                try {{
+                    window.parent.sessionStorage.setItem(
+                        scrollStorageKey, String(legendPanel.scrollTop)
+                    );
+                }} catch (error) {{ /* Scrolling still works without persistence. */ }}
+            }};
+            legendPanel.addEventListener("scroll", saveLegendScroll, {{ passive: true }});
+            window.addEventListener("beforeunload", saveLegendScroll);
+            try {{
+                const savedScroll = window.parent.sessionStorage.getItem(scrollStorageKey);
+                if (savedScroll !== null) legendPanel.scrollTop = Number(savedScroll);
+            }} catch (error) {{ /* Scrolling still works without persistence. */ }}
+
+            const searchTargets = () => {{
+                const query = searchInput.value.trim().toLocaleLowerCase();
+                if (!query) return;
+                const targetItems = Array.from(document.querySelectorAll(
+                    '.legend-item[data-target^="obs-target-"]'
+                ));
+                const exactMatch = targetItems.find(item =>
+                    item.querySelector(".legend-label").textContent.trim()
+                        .toLocaleLowerCase() === query
+                );
+                const match = exactMatch || targetItems.find(item =>
+                    item.querySelector(".legend-label").textContent
+                        .toLocaleLowerCase().includes(query)
+                );
+                if (!match) {{
+                    searchInput.setCustomValidity("No matching target");
+                    searchInput.reportValidity();
+                    return;
+                }}
+                searchInput.setCustomValidity("");
+                selectTarget(match.dataset.target, true);
+                legendPanel.scrollTop = Math.max(
+                    0,
+                    match.offsetTop - (legendPanel.clientHeight - match.offsetHeight) / 2
+                );
+                saveLegendScroll();
+            }};
+            searchInput.addEventListener("input", () => searchInput.setCustomValidity(""));
+            searchInput.addEventListener("keydown", event => {{
+                if (event.key === "Enter") {{
+                    event.preventDefault();
+                    searchTargets();
+                }}
+            }});
 
             document.querySelectorAll(".legend-item[data-target]").forEach(item => {{
                 item.addEventListener("click", () => selectTarget(item.dataset.target));
