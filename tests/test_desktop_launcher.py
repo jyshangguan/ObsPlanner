@@ -1,7 +1,11 @@
+import plistlib
+import re
 import sys
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
+from obsplanner import __version__
 from obsplanner.desktop import launcher
 from obsplanner.desktop.paths import DesktopPaths
 
@@ -14,6 +18,30 @@ def test_macos_bundle_includes_required_matplotlib_renderers():
 
     assert '"matplotlib.backends.backend_agg"' in specification
     assert '"matplotlib.backends.backend_svg"' in specification
+
+
+def test_release_versions_are_consistent():
+    project_root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads(
+        (project_root / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    specification = (
+        project_root / "packaging" / "macos" / "ObsPlanner.spec"
+    ).read_text(encoding="utf-8")
+    with (project_root / "packaging" / "macos" / "Info.plist").open(
+        "rb"
+    ) as stream:
+        info = plistlib.load(stream)
+
+    version = project["project"]["version"]
+    spec_versions = re.findall(
+        r'(?:version|"CFBundleShortVersionString")=(?:\s*)?"([^"]+)"',
+        specification,
+    )
+    assert __version__ == version
+    assert info["CFBundleShortVersionString"] == version
+    assert spec_versions == [version]
+    assert f'"CFBundleShortVersionString": "{version}"' in specification
 
 
 def test_launcher_opens_window_and_stops_server(monkeypatch, tmp_path: Path):

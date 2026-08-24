@@ -10,9 +10,9 @@ other major observing sites around the world.
 
 ## Download
 
-The current release is **ObsPlanner 0.1.5**.
+The current release is **ObsPlanner 0.1.6**.
 
-[Download ObsPlanner 0.1.5 for macOS (Apple Silicon, ZIP)](https://github.com/jyshangguan/ObsPlanner/releases/download/v0.1.5/ObsPlanner-0.1.5-macOS-arm64.zip)
+[Download ObsPlanner 0.1.6 for macOS (Apple Silicon, ZIP)](https://github.com/jyshangguan/ObsPlanner/releases/download/v0.1.6/ObsPlanner-0.1.6-macOS-arm64.zip)
 
 The macOS application is self-contained: Conda, Python, and the source
 repository are not required. Extract the ZIP, move `ObsPlanner.app` to
@@ -32,7 +32,7 @@ run it.
 - Time-selectable local sky plot with color-matched markers and labels for every target
 - Separate-panel mode using the full single-target presentation
 - Fifteen built-in observatory locations with local time-zone support
-- Live Palomar clock plus up to three selectable remote-observer clocks
+- Live Palomar and UTC clocks plus up to three selectable remote-observer clocks
 - Adjustable maximum-airmass and Moon-separation constraints
 - Five-minute sampling of the astronomical night
 - Rise, transit, set, altitude, airmass, and observing-window summaries
@@ -177,7 +177,7 @@ To apply an ad-hoc signature for local testing:
 OBSPLANNER_ADHOC_SIGN=1 ./packaging/macos/build_macos.sh
 ```
 
-The v0.1.5 ZIP release uses the locally signed build and is not Apple-notarized.
+The v0.1.6 ZIP release uses the locally signed build and is not Apple-notarized.
 A future warning-free public distribution should use a Developer ID
 Application certificate, Apple notarization, and a stapled ticket. Signing
 credentials must remain in the developer keychain or CI secrets and must not
