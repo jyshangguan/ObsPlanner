@@ -1299,6 +1299,7 @@ def render_visibility_figure(figure: plt.Figure) -> None:
         <script>
             const storageKey = {storage_key_json};
             const scrollStorageKey = storageKey + ":legend-scroll";
+            const searchStorageKey = storageKey + ":legend-search";
             const legendPanel = document.querySelector(".legend-panel");
             const searchInput = document.querySelector(".legend-search");
             const syncSelectionParam = (target) => {{
@@ -1377,6 +1378,12 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 const savedScroll = window.parent.sessionStorage.getItem(scrollStorageKey);
                 if (savedScroll !== null) legendPanel.scrollTop = Number(savedScroll);
             }} catch (error) {{ /* Scrolling still works without persistence. */ }}
+            try {{
+                const savedSearch = window.parent.sessionStorage.getItem(
+                    searchStorageKey
+                );
+                if (savedSearch !== null) searchInput.value = savedSearch;
+            }} catch (error) {{ /* Search still works without persistence. */ }}
 
             const searchTargets = () => {{
                 const query = searchInput.value.trim().toLocaleLowerCase();
@@ -1398,6 +1405,10 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                     return;
                 }}
                 searchInput.setCustomValidity("");
+                try {{
+                    window.parent.sessionStorage.removeItem(searchStorageKey);
+                }} catch (error) {{ /* Search still works without persistence. */ }}
+                searchInput.value = "";
                 selectTarget(match.dataset.target, true);
                 legendPanel.scrollTop = Math.max(
                     0,
@@ -1405,7 +1416,14 @@ def render_visibility_figure(figure: plt.Figure) -> None:
                 );
                 saveLegendScroll();
             }};
-            searchInput.addEventListener("input", () => searchInput.setCustomValidity(""));
+            searchInput.addEventListener("input", () => {{
+                searchInput.setCustomValidity("");
+                try {{
+                    window.parent.sessionStorage.setItem(
+                        searchStorageKey, searchInput.value
+                    );
+                }} catch (error) {{ /* Search still works without persistence. */ }}
+            }});
             searchInput.addEventListener("keydown", event => {{
                 if (event.key === "Enter") {{
                     event.preventDefault();

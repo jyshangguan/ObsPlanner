@@ -82,28 +82,25 @@ def plot_sky(
             linewidth=1.2 if is_selected else 0.7,
             zorder=6 if is_selected else 3,
         )
-        sky_axis.annotate(
-            target.name,
-            (azimuth, radius),
-            xytext=(7, 5),
-            textcoords="offset points",
-            color=color,
-            fontsize=14 if is_selected else 12,
-            ha="left",
-            va="bottom",
-            annotation_clip=False,
-            fontweight="bold" if is_selected else "normal",
-            zorder=7 if is_selected else 4,
-            bbox=(
-                dict(
+        if is_selected:
+            sky_axis.annotate(
+                target.name,
+                (azimuth, radius),
+                xytext=(7, 5),
+                textcoords="offset points",
+                color=color,
+                fontsize=14,
+                ha="left",
+                va="bottom",
+                annotation_clip=False,
+                fontweight="bold",
+                zorder=7,
+                bbox=dict(
                     boxstyle="round,pad=0.3",
                     facecolor=(0.1, 0.1, 0.1, 0.75),
                     edgecolor=SELECTED_TARGET_COLOR,
-                )
-                if is_selected
-                else None
-            ),
-        )
+                ),
+            )
 
     if show_moon:
         moon = get_body("moon", observation_time, observer.location).transform_to(

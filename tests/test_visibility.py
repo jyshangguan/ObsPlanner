@@ -561,12 +561,7 @@ def test_sky_plot_shows_all_targets_with_matching_colors_and_labels():
     assert sky_axis.get_theta_direction() == 1
     assert sky_axis.get_title().startswith("Sky plot\nParanal Observatory ·")
     assert len(sky_axis.collections) == 2
-    assert [text.get_text() for text in sky_axis.texts] == [
-        "NGC 3783",
-        "PDS 456",
-    ]
-    assert all(text.get_fontsize() == pytest.approx(12) for text in sky_axis.texts)
-    assert [text.get_color() for text in sky_axis.texts] == ["#123456", "#abcdef"]
+    assert len(sky_axis.texts) == 0
     assert [collection.get_facecolor()[0][:3] for collection in sky_axis.collections] == [
         pytest.approx((0x12 / 255, 0x34 / 255, 0x56 / 255)),
         pytest.approx((0xab / 255, 0xcd / 255, 0xef / 255)),
@@ -585,7 +580,6 @@ def test_sky_plot_includes_the_moon_by_default():
     )
 
     assert [text.get_text() for text in figure.axes[0].texts] == [
-        "NGC 3783",
         "Moon",
         "Sun",
     ]
@@ -651,26 +645,17 @@ def test_sky_plot_selection_is_bold_and_drawn_on_top():
     sky_axis = figure.axes[0]
 
     # The selected target is drawn last, so it ends up on top.
-    assert [text.get_text() for text in sky_axis.texts] == [
-        "PDS 456",
-        "NGC 3783",
-    ]
-    selected_label = sky_axis.texts[-1]
-    other_label = sky_axis.texts[0]
+    assert [text.get_text() for text in sky_axis.texts] == ["NGC 3783"]
+    selected_label = sky_axis.texts[0]
     assert selected_label.get_fontweight() == "bold"
     assert selected_label.get_color() == "#ffea00"
-    assert other_label.get_fontweight() == "normal"
-    assert other_label.get_color() == "#abcdef"
     assert selected_label.get_fontsize() == 14
-    assert other_label.get_fontsize() == 12
     label_frame = selected_label.get_bbox_patch()
     assert label_frame is not None
     assert label_frame.get_facecolor() == (0.1, 0.1, 0.1, 0.75)
     assert label_frame.get_edgecolor()[:3] == pytest.approx(
         (1.0, 234 / 255, 0.0)
     )
-    assert other_label.get_bbox_patch() is None
-    assert selected_label.get_zorder() > other_label.get_zorder()
     selected_marker = sky_axis.collections[-1]
     other_marker = sky_axis.collections[0]
     assert list(selected_marker.get_sizes()) == [70]
@@ -696,13 +681,7 @@ def test_sky_plot_without_selection_keeps_input_order_and_normal_weight():
     )
     sky_axis = figure.axes[0]
 
-    assert [text.get_text() for text in sky_axis.texts] == [
-        "NGC 3783",
-        "PDS 456",
-    ]
-    assert all(text.get_fontweight() == "normal" for text in sky_axis.texts)
-    assert all(text.get_fontsize() == 12 for text in sky_axis.texts)
-    assert all(text.get_bbox_patch() is None for text in sky_axis.texts)
+    assert len(sky_axis.texts) == 0
     zorders = [collection.get_zorder() for collection in sky_axis.collections]
     assert zorders == [3, 3]
     sizes = [list(c.get_sizes()) for c in sky_axis.collections]
@@ -724,13 +703,7 @@ def test_sky_plot_ignores_an_unknown_selected_name():
     )
     sky_axis = figure.axes[0]
 
-    assert [text.get_text() for text in sky_axis.texts] == [
-        "NGC 3783",
-        "PDS 456",
-    ]
-    assert all(text.get_fontweight() == "normal" for text in sky_axis.texts)
-    assert all(text.get_fontsize() == 12 for text in sky_axis.texts)
-    assert all(text.get_bbox_patch() is None for text in sky_axis.texts)
+    assert len(sky_axis.texts) == 0
 
 
 def test_single_visibility_plot_uses_target_index_in_curve_gids():
