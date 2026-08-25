@@ -1033,7 +1033,6 @@ try:
         f'<div>Civil twilight: {civil_twilight_local.strftime("%H:%M")}</div>'
         f'<div>Naut. twilight: {nautical_twilight_local.strftime("%H:%M")}</div>'
         f'<div>Astro. twilight: {twilight_local.strftime("%H:%M")}</div>'
-        f'<div style="font-size:0.8rem; opacity:0.7;">{site.timezone}</div>'
         "</div>"
     )
 except (ValueError, TypeError):
