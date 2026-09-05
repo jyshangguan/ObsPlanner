@@ -35,6 +35,17 @@ def test_palomar_selection_survives_adding_a_target():
     assert not app.exception
 
 
+def test_update_controls_only_appear_in_the_frozen_app():
+    app = AppTest.from_file("app.py").run(timeout=30)
+
+    # A source checkout cannot self-update, so the Settings popover must
+    # not offer update controls at all.
+    assert all(
+        item.label != "Check for updates" for item in app.button
+    )
+    assert not app.exception
+
+
 def test_sun_legend_context_requires_moon_and_daytime_toggles():
     app = AppTest.from_file("app.py").run(timeout=30)
     context = app.session_state.filtered_state["active_plot_context"]

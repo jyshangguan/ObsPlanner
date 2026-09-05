@@ -5,6 +5,7 @@ import base64
 import html
 import logging
 import multiprocessing
+import os
 import sys
 import time
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Sequence
 
 from .paths import DesktopPaths
 from .server import DesktopServerError, StreamlitServer, run_streamlit_child
+from .updater import UpdateWatcher, cleanup_old_backups, running_app_bundle
 
 LOGGER = logging.getLogger("obsplanner.desktop")
 
@@ -165,8 +167,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         app_path=paths.app_script,
         log_path=paths.log_dir / "streamlit.log",
     )
+
+    def _exit_after_update() -> None:
+        """Terminate the old process tree once the new app is launching."""
+        LOGGER.info("Self-update applied; restarting ObsPlanner.")
+        server.stop()
+        os._exit(0)
+
     try:
         paths.validate_resources()
+        app_bundle = running_app_bundle()
+        if app_bundle is not None:
+            # Backups only exist after a completed self-update.
+            cleanup_old_backups(app_bundle)
+            watcher = UpdateWatcher(
+                paths.data_dir,
+                app_bundle,
+                paths.cache_dir,
+                _exit_after_update,
+            )
+            watcher.start()
         if options.server_only:
             url = server.start()
             LOGGER.info("Streamlit is ready at %s", url)

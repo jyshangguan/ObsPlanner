@@ -20,6 +20,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 APP_LOGO = PROJECT_ROOT / "assets" / "ObsPlanner.png"
 
+from obsplanner.desktop import updater as app_updater  # noqa: E402
+from obsplanner.desktop.paths import DesktopPaths  # noqa: E402
 from obsplanner.observatories import (  # noqa: E402
     ObservatoryCatalogError,
     load_observatories,
@@ -610,6 +612,117 @@ except ObservatoryCatalogError as exc:
     st.error(str(exc))
     st.stop()
 
+
+def _format_release_size(size_bytes: int | None) -> str:
+    if size_bytes is None:
+        return ""
+    return f" · {size_bytes / 1_000_000:.0f} MB"
+
+
+def _render_update_controls() -> None:
+    """Offer a self-upgrade when running as a frozen macOS app."""
+    if not app_updater.is_updatable_app():
+        return
+    app_bundle = app_updater.running_app_bundle()
+    desktop_paths = DesktopPaths.discover()
+    running_version = (
+        app_updater.current_version() or "unknown version"
+    )
+
+    st.markdown(
+        f"**App update** · ObsPlanner {running_version}",
+        help=(
+            "Check GitHub for a newer ObsPlanner release and upgrade this "
+            "app in place."
+        ),
+    )
+    if "obs_pending_update" not in st.session_state:
+        if st.button("Check for updates", width="stretch"):
+            try:
+                with st.spinner("Checking GitHub releases…"):
+                    release = app_updater.fetch_latest_release()
+                update = app_updater.find_update(release, running_version)
+            except (OSError, ValueError) as exc:
+                st.warning(f"Could not check for updates: {exc}")
+                return
+            if update is None:
+                st.success(f"ObsPlanner {running_version} is up to date.")
+                return
+            st.session_state.obs_pending_update = {
+                "version": update.version,
+                "url": update.download_url,
+                "size": update.size,
+                "digest": update.digest,
+                "published": update.published_at,
+                "notes": update.notes,
+            }
+            st.rerun()
+
+    pending = st.session_state.get("obs_pending_update")
+    if not pending:
+        return
+
+    published = pending["published"] or ""
+    published_date = published[:10] if published else "unknown date"
+    st.info(
+        f"ObsPlanner {pending['version']} is available "
+        f"(published {published_date}"
+        f"{_format_release_size(pending['size'])})."
+    )
+    if pending["notes"]:
+        with st.expander("Release notes"):
+            st.markdown(pending["notes"])
+    if st.button(
+        f"Upgrade to {pending['version']}", type="primary", width="stretch"
+    ):
+        _download_and_stage_update(
+            pending, app_bundle, desktop_paths.cache_dir / "updates"
+        )
+
+
+def _download_and_stage_update(
+    pending: dict, app_bundle: Path, updates_dir: Path
+) -> None:
+    """Download the verified release and ask the desktop app to restart."""
+    download_path = updates_dir / (
+        f"ObsPlanner-{pending['version']}-macOS-arm64.zip"
+    )
+    progress_bar = st.progress(0.0, "Downloading update…")
+
+    def report_progress(downloaded: int, total: int | None) -> None:
+        if total:
+            fraction = min(downloaded / total, 1.0)
+            progress_bar.progress(
+                fraction, f"Downloading… {downloaded / 1_000_000:.0f} MB"
+            )
+
+    try:
+        with st.status("Downloading and verifying the release…"):
+            app_updater.download_file(
+                pending["url"],
+                download_path,
+                expected_size=pending["size"],
+                digest=pending["digest"],
+                progress=report_progress,
+            )
+            app_updater.write_update_request(
+                DesktopPaths.discover().data_dir,
+                download_path,
+                app_bundle,
+                pending["version"],
+            )
+    except (OSError, ValueError) as exc:
+        progress_bar.empty()
+        st.error(f"The update could not be downloaded: {exc}")
+        return
+    st.session_state.pop("obs_pending_update", None)
+    st.success(
+        "Upgrade staged. ObsPlanner will restart into the new version "
+        "momentarily."
+    )
+    st.stop()
+
+
 with st.sidebar:
     logo_data = base64.b64encode(APP_LOGO.read_bytes()).decode("ascii")
     st.markdown(
@@ -808,6 +921,7 @@ with st.sidebar:
         minimum_moon_separation = st.slider(
             "Minimum Moon separation (degrees)", 0, 180, 30, 5
         )
+        _render_update_controls()
 
 if st.session_state.content_page == "targets":
     render_target_table_page()

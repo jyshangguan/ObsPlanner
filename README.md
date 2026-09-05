@@ -50,6 +50,8 @@ run it.
 - Compact observing details inside the plot and line legend outside its right
   axis, keeping the chart visible without page scrolling
 - Selectable local-time, UTC, or apparent local sidereal time (LST) plot axis
+- In-app self-update: check GitHub releases from Settings and upgrade the
+  macOS app in place, with digest-verified downloads and a rollback backup
 
 ## Install
 
@@ -194,6 +196,21 @@ macOS this is:
 
 The launcher and path logic are shared across platforms. Linux and Windows will
 use platform-specific packaging configurations in later releases.
+
+### Self-update
+
+The macOS app can upgrade itself from the project's GitHub releases. Open
+**Settings → Check for updates**; when a newer release exists, the app shows
+its notes and downloads the release ZIP with a SHA-256 digest check, then
+restarts into the new version. The previous bundle is kept beside the app as
+`ObsPlanner.app.old-*` for one launch, so a failed swap rolls back to the
+running version. Self-update requires the app to run from an `.app` bundle
+and is hidden in source checkouts.
+
+Publishing a release that the updater can find: push a tag `vX.Y.Z`, attach
+the built ZIP named `ObsPlanner-X.Y.Z-macOS-arm64.zip`, and publish it as
+the latest release. The download cache lives in the user's cache directory
+(`~/Library/Caches/ObsPlanner/updates` on macOS).
 
 ## Time and constraints
 
