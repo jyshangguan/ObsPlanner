@@ -300,6 +300,7 @@ def plot_visibility(
     *,
     color: str = "#ff4b4b",
     show_moon: bool = True,
+    show_sun_legend: bool = True,
     current_time: Time | None = None,
     show_legend: bool = True,
     target_index: int = 0,
@@ -307,7 +308,11 @@ def plot_visibility(
     """Plot one visibility curve with equivalent airmass and altitude scales.
 
     ``target_index`` identifies the target in the curve group ids so several
-    separate panels can be told apart by the interactive legend.
+    separate panels can be told apart by the interactive legend. The Sun
+    curve is drawn with the Moon when ``show_moon`` is true, but its legend
+    entry only appears when ``show_sun_legend`` is also true: night-only
+    windows never bring the Sun into the plotted airmass range, so the entry
+    would describe an invisible curve.
     """
     elapsed_hours = np.asarray(
         (result.times - result.times[0]).to_value(u.hour), dtype=float
@@ -392,7 +397,7 @@ def plot_visibility(
             color="#d62728",
             linewidth=3.0,
             linestyle="--",
-            label="Sun altitude",
+            label="Sun altitude" if show_sun_legend else "_nolegend_",
             zorder=4,
         )[0]
         sun_line.set_gid("obs-body-sun-solid")
@@ -425,7 +430,7 @@ def plot_visibility(
     legend_handles = [visibility_line]
     if moon_line is not None:
         legend_handles.append(moon_line)
-    if sun_line is not None:
+    if sun_line is not None and show_sun_legend:
         legend_handles.append(sun_line)
     if current_time_line is not None:
         legend_handles.append(current_time_line)
@@ -449,11 +454,18 @@ def plot_combined_visibility(
     *,
     colors: Mapping[str, str],
     show_moon: bool = True,
+    show_sun_legend: bool = True,
     current_time: Time | None = None,
     show_legend: bool = True,
     include_targets: bool = True,
 ) -> plt.Figure:
-    """Plot several targets together with user-selected colors."""
+    """Plot several targets together with user-selected colors.
+
+    The Sun curve is drawn with the Moon when ``show_moon`` is true, but its
+    legend entry only appears when ``show_sun_legend`` is also true, which
+    callers enable for daytime-inclusive windows where the Sun actually
+    enters the plotted airmass range.
+    """
     if not results:
         raise ValueError("At least one visibility result is required.")
     reference = results[0]
@@ -542,11 +554,12 @@ def plot_combined_visibility(
             color="#d62728",
             linewidth=3.0,
             linestyle="--",
-            label="Sun altitude",
+            label="Sun altitude" if show_sun_legend else "_nolegend_",
             zorder=4,
         )[0]
         sun_line.set_gid("obs-body-sun-solid")
-        legend_handles.append(sun_line)
+        if show_sun_legend:
+            legend_handles.append(sun_line)
 
     current_time_line = _add_current_time_marker(
         airmass_axis, reference, current_time

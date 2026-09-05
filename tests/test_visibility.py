@@ -337,6 +337,67 @@ def test_moon_and_sun_curves_can_be_hidden():
     assert "Moon separation < 30°" not in legend_labels
 
 
+def test_sun_legend_entry_can_be_dropped_for_night_only_windows():
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    result = calculate_visibility(
+        target, observer, date(2026, 3, 15), constraints, cadence_minutes=30
+    )
+
+    figure = plot_visibility(
+        result, constraints, "Local time", show_sun_legend=False
+    )
+    line_labels = [
+        line.get_label()
+        for axis in figure.axes
+        for line in axis.get_lines()
+    ]
+    legend_labels = [
+        text.get_text() for text in figure.axes[0].get_legend().get_texts()
+    ]
+    sun_line = next(
+        line
+        for line in figure.axes[0].get_lines()
+        if line.get_gid() == "obs-body-sun-solid"
+    )
+
+    # The Sun curve stays selectable in the SVG via its gid, but the
+    # "_nolegend_" label keeps it out of Matplotlib's legend and out of
+    # the app's HTML legend, which is built from the same labels.
+    assert sun_line.get_label() == "_nolegend_"
+    assert "Moon altitude" in line_labels
+    assert "Sun altitude" not in line_labels
+    assert legend_labels == ["NGC 3783", "Moon altitude"]
+
+
+def test_combined_plot_sun_legend_entry_can_be_dropped():
+    observer = load_observatories()["paranal"].to_observer()
+    constraints = VisibilityConstraints()
+    target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
+    result = calculate_visibility(
+        target, observer, date(2026, 3, 15), constraints, cadence_minutes=30
+    )
+
+    figure = plot_combined_visibility(
+        [result],
+        constraints,
+        colors={"NGC 3783": "#123456"},
+        show_sun_legend=False,
+    )
+    legend_labels = [
+        text.get_text() for text in figure.axes[0].get_legend().get_texts()
+    ]
+    sun_line = next(
+        line
+        for line in figure.axes[0].get_lines()
+        if line.get_gid() == "obs-body-sun-solid"
+    )
+
+    assert sun_line.get_label() == "_nolegend_"
+    assert legend_labels == ["NGC 3783", "Moon altitude"]
+
+
 def test_sun_curve_uses_the_target_airmass_axis():
     target = parse_manual_coordinates("11:39:01", "-37:44:20", "NGC 3783")
     observer = load_observatories()["paranal"].to_observer()

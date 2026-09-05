@@ -1113,6 +1113,7 @@ st.session_state.active_plot_context = {
     "plot_mode": plot_mode,
     "target_colors": dict(st.session_state.target_colors),
     "show_moon": show_moon,
+    "show_daytime": show_daytime,
     "selected_target": selected_target_name,
 }
 
@@ -1459,6 +1460,9 @@ def render_visibility_plots():
     plot_results = context["results"]
     plot_constraints = context["constraints"]
     target_colors = context["target_colors"]
+    # The Sun curve only rises into the plotted airmass range when the
+    # daytime is shown, so keep its legend entry for those windows only.
+    show_sun_legend = context["show_moon"] and context["show_daytime"]
     current_time = Time.now()
     if context["plot_mode"] == "Combined panel" or not plot_results:
         visibility_figure = plot_combined_visibility(
@@ -1467,6 +1471,7 @@ def render_visibility_plots():
             context["time_axis"],
             colors=target_colors,
             show_moon=context["show_moon"],
+            show_sun_legend=show_sun_legend,
             current_time=current_time,
             show_legend=False,
             include_targets=bool(plot_results),
@@ -1483,6 +1488,7 @@ def render_visibility_plots():
                     result.target.name, DEFAULT_COLORS[0]
                 ),
                 show_moon=context["show_moon"],
+                show_sun_legend=show_sun_legend,
                 current_time=current_time,
                 show_legend=False,
                 target_index=panel_index,

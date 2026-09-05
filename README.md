@@ -43,6 +43,8 @@ run it.
 - Observing date and midpoint Moon illuminated fraction in the plot title
 - Observatory in the plot title and target name in the curve legend
 - Settings toggle for showing or hiding the Moon and Sun curves
+- Sun-altitude legend entry only when the daytime span is also shown,
+  since night-only windows never bring the Sun into the airmass range
 - Solid target curve where the Moon-separation constraint passes and dashed
   target curve where it fails
 - Compact observing details inside the plot and line legend outside its right

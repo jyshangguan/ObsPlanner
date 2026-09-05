@@ -35,6 +35,25 @@ def test_palomar_selection_survives_adding_a_target():
     assert not app.exception
 
 
+def test_sun_legend_context_requires_moon_and_daytime_toggles():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    context = app.session_state.filtered_state["active_plot_context"]
+    assert context["show_moon"] is True
+    assert context["show_daytime"] is False
+
+    _element(app.toggle, "Show the daytime").set_value(True)
+    app.run(timeout=30)
+    context = app.session_state.filtered_state["active_plot_context"]
+    assert context["show_daytime"] is True
+
+    _element(app.toggle, "Show the Moon & Sun").set_value(False)
+    app.run(timeout=30)
+    context = app.session_state.filtered_state["active_plot_context"]
+    assert context["show_moon"] is False
+    assert context["show_daytime"] is True
+    assert not app.exception
+
+
 def test_evening_box_lists_every_twilight_stage():
     app = AppTest.from_file("app.py").run(timeout=30)
     evening_box = next(
