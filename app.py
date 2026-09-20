@@ -1032,13 +1032,14 @@ with controls_column:
             '<div class="current-times-title">Current times</div>',
             unsafe_allow_html=True,
         )
-        palomar_label, palomar_time = st.columns([1.45, 1])
-        palomar_label.markdown(
-            '<div class="observer-clock-name">Palomar</div>',
+        observatory_label, observatory_time = st.columns([1.45, 1])
+        clock_name = site.name.replace(" Observatories", "").replace(" Observatory", "")
+        observatory_label.markdown(
+            f'<div class="observer-clock-name">{html.escape(clock_name)}</div>',
             unsafe_allow_html=True,
         )
-        with palomar_time:
-            render_observer_clock(catalog["palomar"].timezone)
+        with observatory_time:
+            render_observer_clock(site.timezone)
 
         utc_label, utc_time = st.columns([1.45, 1])
         utc_label.markdown(

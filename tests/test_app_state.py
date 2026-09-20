@@ -1,4 +1,6 @@
 import re
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from streamlit.testing.v1 import AppTest
 
@@ -90,6 +92,37 @@ def test_fixed_sky_time_is_a_typed_hhmm_field_beside_editable_date():
     assert _element(app.text_input, "Time (HH:MM)").value == "21:37"
     assert not app.error
     assert not app.exception
+
+
+def test_observatory_clock_follows_selection():
+    app = AppTest.from_file("app.py").run(timeout=30)
+
+    for key, name, timezone in (
+        ("xinglong", "Xinglong", "Asia/Shanghai"),
+        ("palomar", "Palomar", "America/Los_Angeles"),
+    ):
+        _element(app.selectbox, "Observatory").set_value(key)
+        before = datetime.now(ZoneInfo(timezone))
+        app.run(timeout=30)
+        after = datetime.now(ZoneInfo(timezone))
+
+        clock_labels = [
+            item.value for item in app.markdown
+            if '<div class="observer-clock-name">' in item.value
+        ]
+        assert clock_labels[0] == f'<div class="observer-clock-name">{name}</div>'
+        assert "UTC" in clock_labels[1]
+        clock_values = [
+            re.search(r"\d{2}:\d{2}:\d{2}", item.value).group()
+            for item in app.markdown
+            if '<div class="observer-clock-time">' in item.value
+        ]
+        expected_times = {
+            (before + timedelta(seconds=second)).strftime("%H:%M:%S")
+            for second in range(int((after - before).total_seconds()) + 2)
+        }
+        assert clock_values[0] in expected_times
+        assert not app.exception
 
 
 def test_live_palomar_and_remote_observer_clocks_are_available():

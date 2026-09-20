@@ -10,7 +10,7 @@ other major observing sites around the world.
 
 ## Download
 
-The current release is **ObsPlanner 0.2.1**.
+The source version is **ObsPlanner 0.2.2**. The latest packaged download is **0.2.1**.
 
 [Download ObsPlanner 0.2.1 for macOS (Apple Silicon, ZIP)](https://github.com/jyshangguan/ObsPlanner/releases/download/v0.2.1/ObsPlanner-0.2.1-macOS-arm64.zip)
 
