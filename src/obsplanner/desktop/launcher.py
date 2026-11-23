@@ -151,6 +151,22 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _use_bundled_certificate_authority() -> None:
+    """Point OpenSSL at the CA bundle shipped with the application.
+
+    Frozen builds link OpenSSL against CA paths from the build machine
+    (for example the build environment's ``ssl/cert.pem``), which do not
+    exist on other machines. The certifi bundle is bundled with the app,
+    so every HTTPS client that uses the default trust store — including
+    ``urllib`` in the self-updater — keeps working anywhere.
+    """
+    try:
+        import certifi
+    except ImportError:
+        return
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     multiprocessing.freeze_support()
     arguments = list(sys.argv[1:] if argv is None else argv)
@@ -158,6 +174,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_streamlit_child(arguments[1:])
 
     options = _parser().parse_args(arguments)
+    _use_bundled_certificate_authority()
     paths = DesktopPaths.discover()
     paths.ensure_writable_directories()
     log_path = paths.log_dir / "ObsPlanner.log"

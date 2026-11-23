@@ -10,6 +10,19 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 python -c "import PyInstaller, webview, platformdirs" >/dev/null
+
+# Refuse Pythons whose ssl module loads extra CA data from beside ssl.py
+# (the codex runtime does this): PyInstaller does not bundle that file,
+# and every TLS connection in the frozen app would then fail. Build with
+# the observations environment instead.
+ssl_dir="$(python -c 'import os, ssl; print(os.path.dirname(ssl.__file__))')"
+if [[ -f "$ssl_dir/codex-rejected-cas.pem" ]]; then
+  echo "This Python's ssl module loads codex-rejected-cas.pem next to ssl.py," >&2
+  echo "which PyInstaller does not bundle, so the frozen app would have no TLS." >&2
+  echo "Build with the 'observations' environment instead." >&2
+  exit 1
+fi
+
 python -m PyInstaller \
   --clean \
   --noconfirm \

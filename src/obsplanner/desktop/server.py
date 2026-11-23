@@ -71,7 +71,9 @@ class StreamlitServer:
     log_path: Path
     host: str = "127.0.0.1"
     port: int | None = None
-    startup_timeout: float = 30.0
+    # A freshly installed bundle builds matplotlib's font cache on its
+    # first launch, which alone can take around half a minute.
+    startup_timeout: float = 90.0
     shutdown_timeout: float = 5.0
     process: subprocess.Popen | None = field(default=None, init=False)
     _log_stream: IO[str] | None = field(default=None, init=False, repr=False)
