@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -7,6 +8,78 @@ from streamlit.testing.v1 import AppTest
 
 def _element(elements, label):
     return next(element for element in elements if element.label == label)
+
+
+def _run_target_editor(app, changes, button=None):
+    """Send browser-style editor state; AppTest has no data-editor edit API."""
+    if button:
+        _element(app.button, button).click()
+    states = app._tree.get_widget_states()
+    editor = states.widgets.add()
+    editor.id = app.dataframe[0].proto.id
+    editor.string_value = json.dumps(
+        {"edited_rows": changes, "added_rows": [], "deleted_rows": []}
+    )
+    app._run(states, timeout=30)
+
+
+def test_target_edits_survive_returning_to_planner():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    _element(app.text_input, "Target name").set_value("Vega")
+    _element(app.text_input, "Coordinates (RA, Dec)").set_value("10, +20")
+    _element(app.button, "Add target").click().run(timeout=30)
+    _element(app.button, "☰").click().run(timeout=30)
+    changes = {0: {"note": "Observe twice", "exptime": "3 x 300", "tag": "P1"}}
+    _run_target_editor(app, changes)
+    _run_target_editor(app, changes, "Back to planner")
+
+    target = app.session_state["targets"][0]
+    assert (target.note, target.exptime, target.tag) == ("Observe twice", "3 x 300", "P1")
+    assert app.session_state["content_page"] == "planner"
+    # Refresh AppTest's tree after navigation removes the editor/color widgets.
+    app._run(timeout=30)
+    _element(app.button, "☰").click().run(timeout=30)
+    row = app.dataframe[0].value.iloc[0]
+    assert (row["note"], row["exptime"], row["tag"]) == ("Observe twice", "3 x 300", "P1")
+    _run_target_editor(app, {0: {"exptime": "4 x 300"}}, "Apply target changes")
+    target = app.session_state["targets"][0]
+    assert (target.note, target.exptime, target.tag) == ("Observe twice", "4 x 300", "P1")
+    assert not app.exception
+
+
+def test_reopening_active_target_table_preserves_pending_edits():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    _element(app.text_input, "Target name").set_value("Vega")
+    _element(app.text_input, "Coordinates (RA, Dec)").set_value("10, +20")
+    _element(app.button, "Add target").click().run(timeout=30)
+    _element(app.button, "☰").click().run(timeout=30)
+    changes = {0: {"note": "Keep this note"}}
+    _run_target_editor(app, changes)
+    _run_target_editor(app, changes, "☰")
+    assert app.session_state["target_information_editor"]["edited_rows"] == changes
+    _run_target_editor(app, changes, "Apply target changes")
+    assert app.session_state["targets"][0].note == "Keep this note"
+    assert not app.exception
+
+
+def test_invalid_target_edits_block_navigation_without_losing_draft():
+    app = AppTest.from_file("app.py").run(timeout=30)
+    _element(app.text_input, "Target name").set_value("Vega")
+    _element(app.text_input, "Coordinates (RA, Dec)").set_value("10, +20")
+    _element(app.button, "Add target").click().run(timeout=30)
+    _element(app.button, "☰").click().run(timeout=30)
+    changes = {0: {"dec": 100, "note": "Keep this draft"}}
+    _run_target_editor(app, changes, "Back to planner")
+    assert app.session_state["content_page"] == "targets"
+    assert app.error
+    assert app.session_state["targets"][0].coord.dec.deg == 20
+    assert app.session_state["target_information_editor"]["edited_rows"] == changes
+    changes[0]["dec"] = 25
+    _run_target_editor(app, changes, "Back to planner")
+    assert app.session_state["targets"][0].note == "Keep this draft"
+    assert app.session_state["targets"][0].coord.dec.deg == 25
+    assert app.session_state["content_page"] == "planner"
+    assert not app.exception
 
 
 def test_palomar_selection_survives_adding_a_target():

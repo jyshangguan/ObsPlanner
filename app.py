@@ -430,7 +430,8 @@ def apply_color_to_tag(target_name: str) -> None:
 
 def show_target_table() -> None:
     """Switch the main content area to the target-information table."""
-    st.session_state.pop("target_information_editor", None)
+    if st.session_state.content_page != "targets":
+        st.session_state.pop("target_information_editor", None)
     st.session_state.content_page = "targets"
 
 
@@ -444,9 +445,9 @@ def render_target_table_page() -> None:
     title_column, back_column = st.columns([5, 1], vertical_alignment="center")
     title_column.title("Current targets")
     with back_column:
-        st.button("Back to planner", width="stretch", on_click=show_planner)
+        back_to_planner = st.button("Back to planner", width="stretch")
 
-    st.caption("Edit target information, then apply the changes.")
+    st.caption("Edits are saved when you apply changes or return to the planner.")
     target_rows = [
         {
             "name": target.name,
@@ -531,11 +532,12 @@ def render_target_table_page() -> None:
                 on_change=apply_color_to_tag,
                 args=(target.name,),
             )
-    if st.button(
+    apply_changes = st.button(
         "Apply target changes",
         type="primary",
         disabled=not st.session_state.targets,
-    ):
+    )
+    if apply_changes or back_to_planner:
         try:
             revised_targets: list[Target] = []
             revised_names: set[str] = set()
@@ -602,6 +604,8 @@ def render_target_table_page() -> None:
             for old_name in old_names:
                 st.session_state.pop(f"target_color_{old_name}", None)
             st.session_state.pop("target_information_editor", None)
+            if back_to_planner:
+                show_planner()
             st.rerun()
         except (TargetResolutionError, TypeError, ValueError) as exc:
             st.error(str(exc))
