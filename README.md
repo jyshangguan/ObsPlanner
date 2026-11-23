@@ -25,7 +25,9 @@ run it.
 
 ## Features
 
-- SIMBAD target-name resolution
+- SIMBAD target-name resolution with automatic fallback to the Harvard
+  CfA mirror (https://simbad.cfa.harvard.edu/) when the primary CDS
+  server is unreachable or too slow
 - Sexagesimal or decimal manual coordinates
 - Persistent target list with individual entry, CSV import, tags, and removal
 - Combined multi-target plot with per-target colors and tag-based color grouping
@@ -100,6 +102,12 @@ Dec: -37:44:20
 
 Right ascension is interpreted as hours in sexagesimal mode; declination is in
 degrees. Decimal mode interprets both fields as degrees.
+
+Name resolution queries the primary SIMBAD server in Strasbourg first. If it
+is unreachable (or answers too slowly), ObsPlanner automatically retries
+against the Harvard CfA mirror at https://simbad.cfa.harvard.edu/ and keeps
+using whichever mirror answered. Mirror switching needs
+`astroquery >= 0.4.8`.
 
 ### CSV target catalogs
 

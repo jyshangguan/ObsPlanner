@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "obsplanner"
-version = "0.2.2"
+version = "0.2.3"
 description = "A Streamlit astronomical target visibility planner"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,7 +12,7 @@ license = { text = "MIT" }
 dependencies = [
     "astropy>=6.0",
     "astroplan>=0.10",
-    "astroquery>=0.4.7",
+    "astroquery>=0.4.8",
     "matplotlib>=3.8",
     "numpy>=1.26",
     "pandas>=2.1",

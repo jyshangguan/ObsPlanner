@@ -119,6 +119,13 @@ The user enters a catalog or common name such as `NGC 3783`. Resolve it through
 SIMBAD using `astroquery.simbad`, then convert the result to an Astropy
 `SkyCoord`.
 
+Resolution queries astroquery's configured SIMBAD server (the CDS primary)
+first. When that server is unreachable or too slow, the query is retried
+automatically against known mirror sites — currently the Harvard CfA mirror,
+`https://simbad.cfa.harvard.edu/` — and the mirror that answered stays in
+use for later queries. An empty result is treated as an authoritative
+"object not found" answer and is not retried on other mirrors.
+
 Name resolution requires network access. Failures should produce a helpful
 message and should not crash the application.
 

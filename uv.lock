@@ -1204,7 +1204,7 @@ wheels = [
 
 [[package]]
 name = "obsplanner"
-version = "0.2.2"
+version = "0.2.3"
 source = { editable = "." }
 dependencies = [
     { name = "astroplan" },
@@ -1232,7 +1232,7 @@ test = [
 requires-dist = [
     { name = "astroplan", specifier = ">=0.10" },
     { name = "astropy", specifier = ">=6.0" },
-    { name = "astroquery", specifier = ">=0.4.7" },
+    { name = "astroquery", specifier = ">=0.4.8" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.1" },
